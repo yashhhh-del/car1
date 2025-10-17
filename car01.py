@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO READY
+# SMART PRICING SYSTEM FOR USED CARS + RENTAL SIMULATOR - STREAMLIT PRO
 # ======================================================
 
 import streamlit as st
@@ -16,7 +16,7 @@ import pickle
 
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
 st.title("🚗 Smart Pricing System for Used Cars - PRO")
-st.markdown("### Upload your dataset and get AI-powered price predictions & market insights!")
+st.markdown("### Upload your dataset and get AI-powered price predictions, rental insights & market analysis!")
 
 sns.set(style="whitegrid")
 
@@ -49,8 +49,9 @@ if uploaded_file is not None:
     # Model Training
     # -------------------------------
     st.subheader("🤖 Model Training & Evaluation")
-    X = df.drop(columns=['Market_Price(INR)'], errors='ignore')
-    y = df['Market_Price(INR)']
+    target_col = 'Market_Price(INR)' if 'Market_Price(INR)' in df.columns else df.columns[-1]
+    X = df.drop(columns=[target_col], errors='ignore')
+    y = df[target_col]
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -113,8 +114,7 @@ if uploaded_file is not None:
 
         models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
         models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
-        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
-                                      format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
+        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded, format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
     else:
         selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
 
@@ -156,6 +156,28 @@ if uploaded_file is not None:
         st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
 
     # -------------------------------
+    # Rental Price Simulator
+    # -------------------------------
+    st.subheader("🚀 Rental Car Price Simulator")
+    rental_col = 'Rental_Availability'
+    if rental_col in df.columns:
+        if st.button("Generate Rental Quotes"):
+            rental_available = df[df[rental_col] == encoders[rental_col].transform(['Available'])[0] if rental_col in encoders else df[rental_col]=='Available']
+            rental_available = rental_available.copy()
+            rental_available['Simulated_Rent'] = rental_available['Price_INR'] * np.random.uniform(0.0007,0.0012,size=len(rental_available))
+
+            st.markdown("**Sample Rental Quotes:**")
+            st.dataframe(rental_available[['Brand','Model','Price_INR','Simulated_Rent']].head(20))
+
+            fig, ax = plt.subplots()
+            sns.histplot(rental_available['Simulated_Rent'], kde=True, ax=ax)
+            ax.set_title("Simulated Daily Rental Price Distribution")
+            st.pyplot(fig)
+
+            st.markdown("**Rental Price Summary:**")
+            st.write(rental_available['Simulated_Rent'].describe())
+
+    # -------------------------------
     # Market Insights & Visualization
     # -------------------------------
     st.subheader("📉 Market Insights & Visualization")
@@ -163,21 +185,4 @@ if uploaded_file is not None:
 
     with col1:
         fig, ax = plt.subplots()
-        sns.histplot(df['Market_Price(INR)'], kde=True, ax=ax)
-        ax.set_title("Distribution of Market Prices")
-        st.pyplot(fig)
-
-    with col2:
-        cat_for_box = None
-        for c in ['Fuel_Type', 'Transmission', 'Owner']:
-            if c in df.columns:
-                cat_for_box = c
-                break
-        if cat_for_box:
-            fig, ax = plt.subplots()
-            sns.boxplot(x=cat_for_box, y='Market_Price(INR)', data=df, ax=ax)
-            ax.set_title(f"{cat_for_box} vs Market Price")
-            st.pyplot(fig)
-
-else:
-    st.info("📥 Please upload your dataset to start.")
+        sns.histplot(df[target_col], kde=True, ax=ax)
