@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO
+# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO FIXED
 # ======================================================
 
 import streamlit as st
@@ -12,7 +12,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import pickle
 
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
 st.title("🚗 Smart Pricing System for Used Cars - PRO")
@@ -89,7 +88,7 @@ if uploaded_file is not None:
     st.success(f"🏆 Best Model Selected: **{best_model_name}**")
 
     # -------------------------------
-    # Feature Importance (for tree-based models)
+    # Feature Importance
     # -------------------------------
     if best_model_name in ['Random Forest', 'Gradient Boosting']:
         st.subheader("🌟 Feature Importance")
@@ -98,19 +97,18 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Price Prediction Form with dropdowns & sliders
+    # Price Prediction Form
     # -------------------------------
     st.subheader("💰 Predict Car Price")
-
     with st.form("price_form"):
         inputs = {}
         for col in feature_columns:
             if col in encoders:
-                # dropdown for categorical
-                inv_map = {v: k for k, v in encoders[col].classes_.items()} if hasattr(encoders[col], 'classes_') else {}
-                inputs[col] = st.selectbox(f"{col}", options=list(range(len(encoders[col].classes_))))
+                # Dropdown for categorical with proper labels
+                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
+                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
             else:
-                # slider for numerical
+                # Slider for numerical
                 min_val = int(df[col].min())
                 max_val = int(df[col].max())
                 default_val = int(df[col].median())
