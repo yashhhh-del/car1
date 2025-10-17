@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_import streamlit as st
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -348,4 +348,5 @@ if uploaded_file is not None:
 
 else:
     st.info("📥 Please upload your dataset to start.")
+
 
