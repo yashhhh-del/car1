@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - ENHANCED VERSION
+# SMART PRICING SYSTEM FOR USED CARS - SIMPLE VERSION
 # ======================================================
 
 import streamlit as st
@@ -12,22 +12,18 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
 
 # Page config
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide", initial_sidebar_state="expanded")
 
-# Custom CSS for better UI
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: bold;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #4A90E2;
         text-align: center;
         padding: 1rem 0;
     }
@@ -38,9 +34,6 @@ st.markdown("""
         color: white;
         text-align: center;
     }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 2rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,16 +42,13 @@ st.markdown("### AI-Powered Price Predictions, EMI Calculator, Comparison Tool &
 
 sns.set(style="whitegrid")
 
-# Sidebar for navigation
+# Sidebar navigation
 with st.sidebar:
-    st.image("https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=300&h=200", use_container_width=True)
     st.title("📊 Navigation")
     page = st.radio("Go to", ["🏠 Home", "💰 Price Prediction", "📊 Compare Cars", "🧮 EMI Calculator", "📈 Market Insights", "📥 Download Report"])
     
     st.markdown("---")
-    st.markdown("### ⚙️ Settings")
-    theme = st.selectbox("Theme", ["Light", "Dark"])
-    language = st.selectbox("Language", ["English", "हिंदी"])
+    st.info("💡 Upload your dataset to unlock all features!")
 
 # File Upload
 uploaded_file = st.file_uploader("📂 Upload CSV/XLSX File", type=["csv","xlsx"])
@@ -146,11 +136,11 @@ if uploaded_file is not None:
         with col1:
             st.subheader("🏆 Top 10 Most Popular Brands")
             brand_counts = df_clean['Brand'].value_counts().head(10)
-            fig = px.bar(brand_counts, x=brand_counts.values, y=brand_counts.index, 
-                        orientation='h', color=brand_counts.values,
-                        labels={'x': 'Number of Cars', 'y': 'Brand'},
-                        color_continuous_scale='Viridis')
-            st.plotly_chart(fig, use_container_width=True)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.barplot(x=brand_counts.values, y=brand_counts.index, palette='viridis', ax=ax)
+            ax.set_xlabel('Number of Cars')
+            ax.set_ylabel('Brand')
+            st.pyplot(fig)
         
         with col2:
             st.subheader("💎 Top 10 Most Expensive Cars")
@@ -161,13 +151,19 @@ if uploaded_file is not None:
         st.markdown("---")
         st.subheader("🔍 Quick Search Dataset")
         
-        search_brand = st.multiselect("Filter by Brand", options=["All"] + sorted(df_clean['Brand'].unique().tolist()))
-        search_fuel = st.multiselect("Filter by Fuel Type", options=["All"] + sorted(df_clean['Fuel_Type'].unique().tolist()) if 'Fuel_Type' in df_clean.columns else ["All"])
+        col1, col2 = st.columns(2)
+        with col1:
+            search_brand = st.multiselect("Filter by Brand", options=["All"] + sorted(df_clean['Brand'].unique().tolist()))
+        with col2:
+            if 'Fuel_Type' in df_clean.columns:
+                search_fuel = st.multiselect("Filter by Fuel Type", options=["All"] + sorted(df_clean['Fuel_Type'].unique().tolist()))
+            else:
+                search_fuel = ["All"]
         
         filtered_data = df_clean.copy()
         if search_brand and "All" not in search_brand:
             filtered_data = filtered_data[filtered_data['Brand'].isin(search_brand)]
-        if search_fuel and "All" not in search_fuel:
+        if search_fuel and "All" not in search_fuel and 'Fuel_Type' in df_clean.columns:
             filtered_data = filtered_data[filtered_data['Fuel_Type'].isin(search_fuel)]
         
         st.dataframe(filtered_data, use_container_width=True)
@@ -182,7 +178,7 @@ if uploaded_file is not None:
     elif page == "💰 Price Prediction":
         st.subheader("💰 Predict Car Price")
         
-        col1, col2 = st.columns([1, 2])
+        col1, col2 = st.columns([1, 1])
         
         with col1:
             st.markdown("### 🤖 Model Performance")
@@ -190,13 +186,14 @@ if uploaded_file is not None:
             st.success(f"🏆 Best Model: **{best_model_name}**")
         
         with col2:
-            # Model comparison chart
-            fig = go.Figure()
-            fig.add_trace(go.Bar(name='R2 Score', x=list(results.keys()), 
-                                y=[results[m]['R2 Score'] for m in results.keys()],
-                                marker_color='lightblue'))
-            fig.update_layout(title="Model R2 Score Comparison", xaxis_title="Model", yaxis_title="R2 Score")
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("### 📊 Model Comparison")
+            fig, ax = plt.subplots(figsize=(8, 5))
+            models_list = list(results.keys())
+            r2_scores = [results[m]['R2 Score'] for m in models_list]
+            sns.barplot(x=r2_scores, y=models_list, palette='coolwarm', ax=ax)
+            ax.set_xlabel('R2 Score')
+            ax.set_title('Model Performance')
+            st.pyplot(fig)
 
         st.markdown("---")
         
@@ -234,7 +231,7 @@ if uploaded_file is not None:
 
             st.markdown("---")
             
-            # Auto-fill inputs from first matching car
+            # Auto-fill inputs
             filtered_row = filtered_rows.iloc[0]
             
             st.markdown("### 🧩 Car Details (Editable)")
@@ -279,7 +276,7 @@ if uploaded_file is not None:
                 
                 st.balloons()
                 
-                # Save prediction to session state
+                # Save prediction
                 if 'predictions' not in st.session_state:
                     st.session_state.predictions = []
                 
@@ -342,15 +339,17 @@ if uploaded_file is not None:
             st.dataframe(comparison_df, use_container_width=True)
             
             # Price comparison chart
-            fig = go.Figure()
-            for i, data in enumerate(comparison_data):
-                fig.add_trace(go.Bar(name=f"{data['Brand']} {data['Model']}", 
-                                    x=['Price'], y=[data['Price']]))
-            fig.update_layout(title="Price Comparison", yaxis_title="Price (INR)")
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Best value finder
+            st.markdown("### 💰 Price Comparison")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            car_names = [f"{d['Brand']} {d['Model']}" for d in comparison_data]
             prices = [d['Price'] for d in comparison_data]
+            sns.barplot(x=car_names, y=prices, palette='Set2', ax=ax)
+            ax.set_ylabel('Price (INR)')
+            ax.set_title('Price Comparison')
+            plt.xticks(rotation=45, ha='right')
+            st.pyplot(fig)
+            
+            # Best value
             best_idx = prices.index(min(prices))
             st.success(f"💰 Best Value: **{comparison_data[best_idx]['Brand']} {comparison_data[best_idx]['Model']}** at ₹{comparison_data[best_idx]['Price']:,.0f}")
 
@@ -392,15 +391,15 @@ if uploaded_file is not None:
             st.metric("Down Payment", f"₹{car_price * down_payment / 100:,.0f}")
             
             # Pie chart
-            fig = go.Figure(data=[go.Pie(labels=['Principal', 'Interest'], 
-                                        values=[principal, total_interest],
-                                        hole=.3)])
-            fig.update_layout(title="Loan Breakdown")
-            st.plotly_chart(fig, use_container_width=True)
+            fig, ax = plt.subplots(figsize=(6, 6))
+            ax.pie([principal, total_interest], labels=['Principal', 'Interest'], 
+                   autopct='%1.1f%%', startangle=90, colors=['#4A90E2', '#E24A4A'])
+            ax.set_title('Loan Breakdown')
+            st.pyplot(fig)
         
         st.markdown("---")
         
-        # Amortization schedule
+        # Payment schedule
         st.subheader("📅 Payment Schedule (First 12 Months)")
         
         schedule = []
@@ -433,48 +432,54 @@ if uploaded_file is not None:
             col1, col2 = st.columns(2)
             
             with col1:
-                fig = px.histogram(df_clean, x='Market_Price(INR)', nbins=50,
-                                 title="Price Distribution",
-                                 labels={'Market_Price(INR)': 'Price (INR)'})
-                st.plotly_chart(fig, use_container_width=True)
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.histplot(df_clean['Market_Price(INR)'], kde=True, bins=50, ax=ax, color='skyblue')
+                ax.set_title('Price Distribution')
+                ax.set_xlabel('Price (INR)')
+                st.pyplot(fig)
             
             with col2:
-                fig = px.box(df_clean, y='Market_Price(INR)', 
-                           title="Price Range Analysis")
-                st.plotly_chart(fig, use_container_width=True)
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.boxplot(y=df_clean['Market_Price(INR)'], ax=ax, color='lightgreen')
+                ax.set_title('Price Range Analysis')
+                st.pyplot(fig)
         
         with tab2:
             if 'Fuel_Type' in df_clean.columns:
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    fig = px.box(df_clean, x='Fuel_Type', y='Market_Price(INR)',
-                               title="Price by Fuel Type",
-                               color='Fuel_Type')
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    sns.boxplot(data=df_clean, x='Fuel_Type', y='Market_Price(INR)', ax=ax, palette='Set3')
+                    ax.set_title('Price by Fuel Type')
+                    plt.xticks(rotation=45)
+                    st.pyplot(fig)
                 
                 with col2:
                     fuel_counts = df_clean['Fuel_Type'].value_counts()
-                    fig = px.pie(values=fuel_counts.values, names=fuel_counts.index,
-                               title="Fuel Type Distribution")
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig, ax = plt.subplots(figsize=(6, 6))
+                    ax.pie(fuel_counts.values, labels=fuel_counts.index, autopct='%1.1f%%', startangle=90)
+                    ax.set_title('Fuel Type Distribution')
+                    st.pyplot(fig)
         
         with tab3:
             if 'Registration_City' in df_clean.columns:
                 city_avg = df_clean.groupby('Registration_City')['Market_Price(INR)'].mean().sort_values(ascending=False).head(10)
-                fig = px.bar(x=city_avg.index, y=city_avg.values,
-                           title="Average Price by City (Top 10)",
-                           labels={'x': 'City', 'y': 'Average Price (INR)'},
-                           color=city_avg.values)
-                st.plotly_chart(fig, use_container_width=True)
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(x=city_avg.values, y=city_avg.index, palette='rocket', ax=ax)
+                ax.set_xlabel('Average Price (INR)')
+                ax.set_title('Average Price by City (Top 10)')
+                st.pyplot(fig)
         
         with tab4:
             year_avg = df_clean.groupby('Year')['Market_Price(INR)'].mean().sort_index()
-            fig = px.line(x=year_avg.index, y=year_avg.values,
-                         title="Average Price Trend by Year",
-                         labels={'x': 'Year', 'y': 'Average Price (INR)'},
-                         markers=True)
-            st.plotly_chart(fig, use_container_width=True)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(year_avg.index, year_avg.values, marker='o', linewidth=2, markersize=8, color='#4A90E2')
+            ax.set_xlabel('Year')
+            ax.set_ylabel('Average Price (INR)')
+            ax.set_title('Average Price Trend by Year')
+            ax.grid(True, alpha=0.3)
+            st.pyplot(fig)
 
     # ============================================
     # DOWNLOAD REPORT PAGE
@@ -534,14 +539,13 @@ if uploaded_file is not None:
                     key='download-pred'
                 )
             else:
-                st.info("No predictions made yet. Go to Price Prediction page to make predictions!")
+                st.info("No predictions made yet!")
         
         st.markdown("---")
-        st.markdown("### 📧 Export Options")
-        st.info("💡 Tip: You can also copy data directly from tables and paste into Excel!")
+        st.success("💡 Tip: You can copy data directly from tables and paste into Excel!")
 
 else:
-    st.info("📥 Please upload your dataset to start using the Smart Car Pricing System")
+    st.info("📥 Please upload your dataset to start!")
     
     st.markdown("---")
     st.markdown("### 🎯 Features Available:")
@@ -551,55 +555,26 @@ else:
     with col1:
         st.markdown("""
         **💰 Price Prediction**
-        - AI-powered price estimation
+        - AI-powered estimation
         - Multiple ML models
         - Real-time car images
-        - Auto-fill car details
+        - Auto-fill details
         """)
     
     with col2:
         st.markdown("""
         **📊 Compare Cars**
-        - Side-by-side comparison
-        - Visual price charts
+        - Side-by-side view
+        - Visual charts
         - Best value finder
-        - Multiple cars at once
+        - Multiple cars
         """)
     
     with col3:
         st.markdown("""
         **🧮 EMI Calculator**
-        - Monthly payment calculator
+        - Monthly payments
         - Loan breakdown
         - Payment schedule
         - Interest analysis
-        """)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        **📈 Market Insights**
-        - Price trends
-        - City-wise analysis
-        - Fuel type comparison
-        - Interactive charts
-        """)
-    
-    with col2:
-        st.markdown("""
-        **📥 Download Reports**
-        - Export to CSV
-        - Prediction history
-        - Model performance
-        - Custom reports
-        """)
-    
-    with col3:
-        st.markdown("""
-        **🎨 Enhanced UI**
-        - Modern design
-        - Interactive visualizations
-        - Easy navigation
-        - Mobile responsive
         """)
