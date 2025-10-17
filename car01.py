@@ -35,9 +35,11 @@ if uploaded_file is not None:
     st.dataframe(df)
 
     # -------------------------------
-    # Data Cleaning
+    # Data Preprocessing
     # -------------------------------
+    st.subheader("🧹 Data Cleaning & Preprocessing")
     df = df.dropna()
+
     cat_cols = df.select_dtypes(include=['object']).columns
     encoders = {}
     for col in cat_cols:
@@ -48,6 +50,7 @@ if uploaded_file is not None:
     # -------------------------------
     # Model Training
     # -------------------------------
+    st.subheader("🤖 Model Training & Evaluation")
     if 'Market_Price(INR)' not in df.columns:
         st.error("❌ Dataset must have 'Market_Price(INR)' column for prediction.")
         st.stop()
@@ -97,52 +100,41 @@ if uploaded_file is not None:
     # Price Prediction Form
     # -------------------------------
     st.subheader("💰 Predict Car Price")
+
+    # Step 1: Brand select
     brand_col = 'Brand'
     model_col = 'Model'
-
-    # Brand select
     if brand_col in encoders:
         inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
         selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
     else:
         selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
 
-    # Model select filtered by Brand
-    df_original = df.copy()
-    for col in ['Brand','Model','Car_Type','Fuel_Type']:
-        if col in encoders:
-            df_original[col] = df[col].map(lambda x: encoders[col].inverse_transform([x])[0])
+    # Step 2: Model select filtered by brand
+    if model_col in encoders:
+        df_original = df.copy()
+        for c in [brand_col, model_col]:
+            df_original[c] = df[c].map(lambda x: encoders[c].inverse_transform([x])[0])
+        models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
+        models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
+        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
+                                      format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
+    else:
+        selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
 
-    models_for_brand = df_original[df_original['Brand'] == inv_brand[selected_brand]]['Model'].unique()
-    selected_model = st.selectbox(f"{model_col}", options=models_for_brand)
-
-    # Auto-fill other details based on Brand+Model
-    filtered_row = df_original[(df_original['Brand']==inv_brand[selected_brand]) & (df_original['Model']==selected_model)].iloc[0]
+    # Step 3: Auto-fill other features for selected Brand+Model
+    filtered_row = df_original[(df_original[brand_col]==inv_brand[selected_brand]) & 
+                               (df_original[model_col]==encoders[model_col].inverse_transform([selected_model])[0])].iloc[0]
     inputs = {}
     for col in feature_columns:
-        if col in ['Brand','Model']:
-            if col=='Brand':
-                inputs[col] = selected_brand
-            else:
-                inputs[col] = encoders[col].transform([selected_model])[0]
-        else:
-            val = filtered_row[col] if col in filtered_row else df[col].median()
-            if col in encoders:
+        if col in encoders:
+            val = filtered_row[col] if col in filtered_row else list(encoders[col].classes_)[0]
+            if val in encoders[col].classes_:
                 inputs[col] = encoders[col].transform([val])[0]
             else:
-                inputs[col] = val
-
-    # Show sliders or selects for other features if needed
-    for col in feature_columns:
-        if col not in ['Brand','Model']:
-            if col in encoders:
-                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
-                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), index=list(inv_map.keys()).index(filtered_row[col]), format_func=lambda x: inv_map[x])
-            else:
-                min_val = int(df[col].min())
-                max_val = int(df[col].max())
-                default_val = int(filtered_row[col])
-                inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
+                inputs[col] = 0
+        else:
+            inputs[col] = filtered_row[col] if col in filtered_row else 0
 
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
@@ -169,7 +161,7 @@ if uploaded_file is not None:
         st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
 
     # -------------------------------
-    # Market Insights & Visualization
+    # Market Insights
     # -------------------------------
     st.subheader("📉 Market Insights & Visualization")
     col1, col2 = st.columns(2)
@@ -182,7 +174,7 @@ if uploaded_file is not None:
 
     with col2:
         cat_for_box = None
-        for c in ['Fuel_Type','Transmission','Owner']:
+        for c in ['Fuel_Type', 'Transmission', 'Owner']:
             if c in df.columns:
                 cat_for_box = c
                 break
@@ -196,13 +188,14 @@ if uploaded_file is not None:
     # Top 5 Models Analysis
     # -------------------------------
     st.subheader("🏆 Top 5 Models by Average Market Price")
-    top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
-    st.table(top_models_df)
+    if 'Model' in df.columns and 'Market_Price(INR)' in df.columns:
+        top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
+        st.table(top_models_df)
 
-    st.subheader("📋 Details of Top 5 Models")
-    top_model_names = top_models_df['Model'].tolist()
-    top_model_details = df[df['Model'].isin(top_model_names)]
-    st.dataframe(top_model_details)
+        st.subheader("📋 Details of Top 5 Models")
+        top_model_names = top_models_df['Model'].tolist()
+        top_model_details = df[df['Model'].isin(top_model_names)]
+        st.dataframe(top_model_details)
 
 else:
     st.info("📥 Please upload your dataset to start.")
