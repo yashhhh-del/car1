@@ -25,7 +25,11 @@ if uploaded_file is not None:
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
-            df = pd.read_excel(uploaded_file, engine='openpyxl')
+            try:
+                df = pd.read_excel(uploaded_file, engine='openpyxl')
+            except ImportError:
+                st.error("❌ openpyxl library is missing. Install it using `pip install openpyxl`.")
+                st.stop()
         st.success("✅ File uploaded successfully!")
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
@@ -97,45 +101,43 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Price Prediction Form
+    # Price Prediction Form (Dynamic Brand→Model→Other Features)
     # -------------------------------
     st.subheader("💰 Predict Car Price")
     brand_col = 'Brand'
     model_col = 'Model'
 
-    # Brand select
-    if brand_col in encoders:
-        inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
-        selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
-    else:
-        selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
+    df_original = df.copy()
+    for col in encoders:
+        df_original[col] = encoders[col].inverse_transform(df_original[col])
 
-    # Filter models for brand
-    if model_col in encoders:
-        df_original = df.copy()
-        for col in ['Brand', 'Model']:
-            df_original[col] = df[col].map(lambda x: encoders[col].inverse_transform([x])[0])
-        models_for_brand = df_original[df_original['Brand'] == inv_brand[selected_brand]]['Model'].unique()
-        models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
-        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded, format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
-    else:
-        selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
+    selected_brand = st.selectbox("Brand", options=df_original['Brand'].unique())
+    models_for_brand = df_original[df_original['Brand'] == selected_brand]['Model'].unique()
+    selected_model_name = st.selectbox("Model", options=models_for_brand)
 
-    # Auto-fill other details based on Brand + Model
-    auto_row = df_original[(df_original['Brand']==inv_brand[selected_brand]) & (df_original['Model']==encoders[model_col].inverse_transform([selected_model])[0])].iloc[0]
-    inputs = {}
-    for col in feature_columns:
-        if col in ['Brand', 'Model']:
-            inputs[col] = selected_brand if col=='Brand' else selected_model
-        else:
-            val = auto_row[col]
-            if col in encoders:
-                if val in encoders[col].classes_:
-                    inputs[col] = encoders[col].transform([val])[0]
-                else:
-                    inputs[col] = 0  # default for unseen
-            else:
-                inputs[col] = val
+    df_filtered = df_original[(df_original['Brand'] == selected_brand) & (df_original['Model'] == selected_model_name)]
+
+    # Columns to show dynamically
+    categorical_cols = ['Car_Type', 'Fuel_Type', 'Transmission', 'Condition', 'Owner', 
+                        'Insurance_Status', 'Registration_City', 'Service_History', 'Accident_History', 'Car_Availability']
+    numeric_cols = ['Year', 'Age', 'Mileage(km)', 'Engine_cc', 'Power_HP', 'Seats']
+
+    inputs = {'Brand': selected_brand, 'Model': selected_model_name}
+
+    # Categorical columns
+    for col in categorical_cols:
+        if col in df_filtered.columns:
+            options = df_filtered[col].unique()
+            if len(options) > 0:
+                inputs[col] = st.selectbox(f"{col}", options=options)
+
+    # Numeric columns
+    for col in numeric_cols:
+        if col in df_filtered.columns:
+            min_val = int(df_filtered[col].min())
+            max_val = int(df_filtered[col].max())
+            default_val = int(df_filtered[col].median())
+            inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
 
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
@@ -162,7 +164,7 @@ if uploaded_file is not None:
         st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
 
     # -------------------------------
-    # Market Insights
+    # Market Insights & Visualization
     # -------------------------------
     st.subheader("📉 Market Insights & Visualization")
     col1, col2 = st.columns(2)
