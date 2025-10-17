@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO FIXED
+# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT READY
 # ======================================================
 
 import streamlit as st
@@ -13,9 +13,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
-st.title("🚗 Smart Pricing System for Used Cars - PRO")
-st.markdown("### Upload your dataset and get AI-powered price predictions & market insights!")
+st.set_page_config(page_title="Smart Pricing System for Used Cars", layout="wide")
+st.title("🚗 Smart Pricing System for Used Cars")
+st.markdown("### Upload your used car dataset and get AI-powered price predictions!")
 
 sns.set(style="whitegrid")
 
@@ -38,7 +38,7 @@ if uploaded_file is not None:
     st.subheader("🧹 Data Cleaning & Preprocessing")
     df = df.dropna()
 
-    # Encode categorical columns
+    # Encode categorical columns and save mappings
     cat_cols = df.select_dtypes(include=['object']).columns
     encoders = {}
     for col in cat_cols:
@@ -56,7 +56,9 @@ if uploaded_file is not None:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
+    # Save feature columns for input consistency
     feature_columns = X.columns.tolist()
+
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
     models = {
@@ -88,31 +90,13 @@ if uploaded_file is not None:
     st.success(f"🏆 Best Model Selected: **{best_model_name}**")
 
     # -------------------------------
-    # Feature Importance
-    # -------------------------------
-    if best_model_name in ['Random Forest', 'Gradient Boosting']:
-        st.subheader("🌟 Feature Importance")
-        importance = best_model.feature_importances_
-        fi_df = pd.DataFrame({'Feature': feature_columns, 'Importance': importance}).sort_values(by='Importance', ascending=False)
-        st.bar_chart(fi_df.set_index('Feature'))
-
-    # -------------------------------
     # Price Prediction Form
     # -------------------------------
     st.subheader("💰 Predict Car Price")
     with st.form("price_form"):
         inputs = {}
         for col in feature_columns:
-            if col in encoders:
-                # Dropdown for categorical with proper labels
-                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
-                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
-            else:
-                # Slider for numerical
-                min_val = int(df[col].min())
-                max_val = int(df[col].max())
-                default_val = int(df[col].median())
-                inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
+            inputs[col] = st.number_input(f"{col}", min_value=0, value=0)
 
         submit_btn = st.form_submit_button("🔍 Predict Price")
 
@@ -130,22 +114,12 @@ if uploaded_file is not None:
         st.metric("Fair Market Price", f"₹{mid_price:,.0f}")
         st.metric("Maximum Negotiation Price", f"₹{max_price:,.0f}")
 
-        # Suggestion
-        st.subheader("💡 Deal Suggestion")
-        st.info("💰 Good deal if below min, overpriced if above max, fair in between.")
-
-        # Download prediction
-        download_df = input_df.copy()
-        download_df['Predicted_Price'] = predicted_price
-        download_df['Min_Price'] = min_price
-        download_df['Mid_Price'] = mid_price
-        download_df['Max_Price'] = max_price
-        st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
+        st.balloons()
 
     # -------------------------------
-    # Market Insights & Visualization
+    # Visualization
     # -------------------------------
-    st.subheader("📉 Market Insights & Visualization")
+    st.subheader("📉 Price Insights & Visualization")
     col1, col2 = st.columns(2)
 
     with col1:
@@ -155,15 +129,10 @@ if uploaded_file is not None:
         st.pyplot(fig)
 
     with col2:
-        cat_for_box = None
-        for c in ['Fuel_Type', 'Transmission', 'Owner']:
-            if c in df.columns:
-                cat_for_box = c
-                break
-        if cat_for_box:
+        if 'Fuel_Type' in df.columns:
             fig, ax = plt.subplots()
-            sns.boxplot(x=cat_for_box, y='Market_Price(INR)', data=df, ax=ax)
-            ax.set_title(f"{cat_for_box} vs Market Price")
+            sns.boxplot(x='Fuel_Type', y='Market_Price(INR)', data=df, ax=ax)
+            ax.set_title("Fuel Type vs Market Price")
             st.pyplot(fig)
 
 else:
