@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT READY
+# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT READY (with Gallery)
 # ======================================================
 
 import streamlit as st
@@ -22,7 +22,7 @@ sns.set(style="whitegrid")
 # -------------------------------
 # File Upload
 # -------------------------------
-uploaded_file = st.file_uploader("📂 Upload CSV File", type=["csv", "xlsx"])
+uploaded_file = st.file_uploader("📂 Upload CSV/XLSX File", type=["csv","xlsx"])
 
 if uploaded_file is not None:
     try:
@@ -36,7 +36,6 @@ if uploaded_file is not None:
         st.error(f"❌ Error reading file: {e}")
         st.stop()
 
-    # Check for price column
     if 'Market_Price(INR)' not in df.columns:
         st.error("❌ Dataset must include 'Market_Price(INR)' column.")
         st.stop()
@@ -49,7 +48,6 @@ if uploaded_file is not None:
     # -------------------------------
     st.subheader("🧹 Data Cleaning & Encoding")
     df = df.dropna()
-
     cat_cols = df.select_dtypes(include=['object']).columns
     encoders = {}
     for col in cat_cols:
@@ -66,8 +64,8 @@ if uploaded_file is not None:
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
-
     feature_columns = X.columns.tolist()
+
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
     models = {
@@ -97,7 +95,7 @@ if uploaded_file is not None:
     st.success(f"🏆 Best Model Selected: **{best_model_name}**")
 
     # -------------------------------
-    # Dynamic Brand → Model → Prediction
+    # Brand → Model → Car Gallery → Prediction
     # -------------------------------
     st.subheader("💰 Predict Car Price")
 
@@ -105,17 +103,32 @@ if uploaded_file is not None:
     for col in encoders:
         df_original[col] = encoders[col].inverse_transform(df[col])
 
-    # --- Brand Selection
+    # Brand selection
     brands = sorted(df_original['Brand'].unique())
     selected_brand = st.selectbox("🚘 Select Brand", brands)
 
-    # --- Model selection filtered by Brand
+    # Model selection filtered by brand
     filtered_models = sorted(df_original[df_original['Brand'] == selected_brand]['Model'].unique())
     selected_model = st.selectbox("🔧 Select Model", filtered_models)
 
-    # --- Get first matching car row for auto-fill
-    filtered_row = df_original[(df_original['Brand'] == selected_brand) & 
-                               (df_original['Model'] == selected_model)].iloc[0]
+    # Filter rows for gallery
+    filtered_rows = df_original[(df_original['Brand'] == selected_brand) &
+                                (df_original['Model'] == selected_model)]
+
+    # Show all images in horizontal scrollable gallery
+    if 'Image_URL' in df_original.columns:
+        st.markdown("### 🖼️ Car Images")
+        for i in range(0, len(filtered_rows), 3):
+            cols = st.columns(3)
+            for j, col in enumerate(cols):
+                idx = i + j
+                if idx < len(filtered_rows) and pd.notna(filtered_rows.iloc[idx]['Image_URL']):
+                    col.image(filtered_rows.iloc[idx]['Image_URL'],
+                              use_column_width=True,
+                              caption=f"{filtered_rows.iloc[idx]['Brand']} {filtered_rows.iloc[idx]['Model']}")
+
+    # Show first row for editable inputs
+    filtered_row = filtered_rows.iloc[0]
 
     st.markdown("### 🧩 Car Details (Auto-filled but Editable)")
     inputs = {}
@@ -130,10 +143,9 @@ if uploaded_file is not None:
                 default_val = int(filtered_row[col])
                 inputs[col] = st.slider(f"{col}", min_val, max_val, default_val)
 
-    # --- Prediction
+    # Prediction
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([inputs])
-        # Encode categorical columns
         for col in encoders:
             if col in input_df:
                 input_df[col] = encoders[col].transform(input_df[col].astype(str))
@@ -144,10 +156,9 @@ if uploaded_file is not None:
         st.metric("Minimum Negotiation Price", f"₹{predicted_price*0.9:,.0f}")
         st.metric("Fair Market Price", f"₹{predicted_price:,.0f}")
         st.metric("Maximum Negotiation Price", f"₹{predicted_price*1.1:,.0f}")
+        st.balloons()
 
-    # -------------------------------
     # Market Insights
-    # -------------------------------
     st.subheader("📉 Market Insights")
     col1, col2 = st.columns(2)
 
