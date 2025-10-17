@@ -1,12 +1,15 @@
-# ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT READY (with Gallery)
-# ======================================================
+# ======================================
+# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT READY
+# ======================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import requests
+from io import BytesIO
+from PIL import Image
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
@@ -14,40 +17,27 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
-st.title("🚗 Smart Pricing System for Used Cars")
-st.markdown("### Upload your dataset and get AI-powered price predictions & insights!")
+st.title("🚗 Smart Pricing System for Used Cars - PRO")
+st.markdown("### Upload your used car dataset and get AI-powered price predictions!")
 
 sns.set(style="whitegrid")
 
 # -------------------------------
 # File Upload
 # -------------------------------
-uploaded_file = st.file_uploader("📂 Upload CSV/XLSX File", type=["csv","xlsx"])
+uploaded_file = st.file_uploader("📂 Upload CSV File", type=["csv"])
 
 if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            import openpyxl
-            df = pd.read_excel(uploaded_file, engine='openpyxl')
-        st.success("✅ File uploaded successfully!")
-    except Exception as e:
-        st.error(f"❌ Error reading file: {e}")
-        st.stop()
+    df = pd.read_csv(uploaded_file)
+    st.success("✅ File uploaded successfully!")
 
     if 'Market_Price(INR)' not in df.columns:
         st.error("❌ Dataset must include 'Market_Price(INR)' column.")
         st.stop()
 
-    st.subheader("📊 Full Dataset")
-    st.dataframe(df)
-
     # -------------------------------
-    # Data Preprocessing
+    # Encode categorical columns
     # -------------------------------
-    st.subheader("🧹 Data Cleaning & Encoding")
-    df = df.dropna()
     cat_cols = df.select_dtypes(include=['object']).columns
     encoders = {}
     for col in cat_cols:
@@ -58,7 +48,6 @@ if uploaded_file is not None:
     # -------------------------------
     # Model Training
     # -------------------------------
-    st.subheader("🤖 Model Training & Evaluation")
     X = df.drop(columns=['Market_Price(INR)'])
     y = df['Market_Price(INR)']
 
@@ -75,7 +64,7 @@ if uploaded_file is not None:
     }
 
     results = {}
-    with st.spinner("Training models, please wait..."):
+    with st.spinner("Training models..."):
         for name, model in models.items():
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
@@ -86,64 +75,53 @@ if uploaded_file is not None:
             }
 
     st.success("✅ Model training completed!")
+
     result_df = pd.DataFrame(results).T
-    st.subheader("📈 Model Performance Comparison")
+    st.subheader("📈 Model Performance")
     st.dataframe(result_df)
 
     best_model_name = result_df['R2 Score'].idxmax()
     best_model = models[best_model_name]
-    st.success(f"🏆 Best Model Selected: **{best_model_name}**")
+    st.success(f"🏆 Best Model: {best_model_name}")
 
     # -------------------------------
-    # Brand → Model → Car Gallery → Prediction
+    # Brand & Model Selection
     # -------------------------------
     st.subheader("💰 Predict Car Price")
-
     df_original = df.copy()
     for col in encoders:
         df_original[col] = encoders[col].inverse_transform(df[col])
 
-    # Brand selection
-    brands = sorted(df_original['Brand'].unique())
-    selected_brand = st.selectbox("🚘 Select Brand", brands)
+    brand_list = sorted(df_original['Brand'].unique())
+    selected_brand = st.selectbox("🚘 Select Brand", brand_list)
+    model_list = sorted(df_original[df_original['Brand'] == selected_brand]['Model'].unique())
+    selected_model = st.selectbox("🔧 Select Model", model_list)
 
-    # Model selection filtered by brand
-    filtered_models = sorted(df_original[df_original['Brand'] == selected_brand]['Model'].unique())
-    selected_model = st.selectbox("🔧 Select Model", filtered_models)
+    # -------------------------------
+    # Auto-fill inputs
+    # -------------------------------
+    filtered = df_original[(df_original['Brand'] == selected_brand) & 
+                           (df_original['Model'] == selected_model)]
+    if not filtered.empty:
+        base_data = filtered.iloc[0]
+    else:
+        base_data = pd.Series(dtype='object')
 
-    # Filter rows for gallery
-    filtered_rows = df_original[(df_original['Brand'] == selected_brand) &
-                                (df_original['Model'] == selected_model)]
-
-    # Show all images in horizontal scrollable gallery
-    if 'Image_URL' in df_original.columns:
-        st.markdown("### 🖼️ Car Images")
-        for i in range(0, len(filtered_rows), 3):
-            cols = st.columns(3)
-            for j, col in enumerate(cols):
-                idx = i + j
-                if idx < len(filtered_rows) and pd.notna(filtered_rows.iloc[idx]['Image_URL']):
-                    col.image(filtered_rows.iloc[idx]['Image_URL'],
-                              use_column_width=True,
-                              caption=f"{filtered_rows.iloc[idx]['Brand']} {filtered_rows.iloc[idx]['Model']}")
-
-    # Show first row for editable inputs
-    filtered_row = filtered_rows.iloc[0]
-
-    st.markdown("### 🧩 Car Details (Auto-filled but Editable)")
     inputs = {}
-    for col in feature_columns:
-        if col in filtered_row.index:
+    for col in X.columns:
+        if col in df_original.columns:
             if df_original[col].dtype == 'object':
                 options = sorted(df_original[col].unique())
-                default = filtered_row[col]
-                inputs[col] = st.selectbox(f"{col}", options, index=options.index(default))
+                default_val = base_data[col] if col in base_data else options[0]
+                inputs[col] = st.selectbox(col, options, index=options.index(default_val) if default_val in options else 0)
             else:
                 min_val, max_val = int(df_original[col].min()), int(df_original[col].max())
-                default_val = int(filtered_row[col])
-                inputs[col] = st.slider(f"{col}", min_val, max_val, default_val)
+                default_val = int(base_data[col]) if col in base_data else int(df_original[col].median())
+                inputs[col] = st.slider(col, min_value=min_val, max_value=max_val, value=default_val)
 
-    # Prediction
+    # -------------------------------
+    # Predict Price + Show Image
+    # -------------------------------
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([inputs])
         for col in encoders:
@@ -153,27 +131,20 @@ if uploaded_file is not None:
         predicted_price = best_model.predict(input_scaled)[0]
 
         st.subheader("📊 Price Estimation")
-        st.metric("Minimum Negotiation Price", f"₹{predicted_price*0.9:,.0f}")
+        st.metric("Minimum Price", f"₹{predicted_price*0.9:,.0f}")
         st.metric("Fair Market Price", f"₹{predicted_price:,.0f}")
-        st.metric("Maximum Negotiation Price", f"₹{predicted_price*1.1:,.0f}")
-        st.balloons()
+        st.metric("Maximum Price", f"₹{predicted_price*1.1:,.0f}")
 
-    # Market Insights
-    st.subheader("📉 Market Insights")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        fig, ax = plt.subplots()
-        sns.histplot(df_original['Market_Price(INR)'], kde=True, ax=ax)
-        ax.set_title("Distribution of Market Prices")
-        st.pyplot(fig)
-
-    with col2:
-        if 'Fuel_Type' in df_original.columns:
-            fig, ax = plt.subplots()
-            sns.boxplot(x='Fuel_Type', y='Market_Price(INR)', data=df_original, ax=ax)
-            ax.set_title("Fuel Type vs Price")
-            st.pyplot(fig)
-
-else:
-    st.info("📥 Please upload your dataset to start.")
+        # -------------------------------
+        # Fetch car image from Unsplash
+        # -------------------------------
+        query = f"{selected_brand} {selected_model} car"
+        access_key = "YOUR_UNSPLASH_ACCESS_KEY"  # <-- Sign up at unsplash.com and get key
+        url = f"https://api.unsplash.com/photos/random?query={query}&client_id={access_key}&orientation=landscape"
+        try:
+            response = requests.get(url).json()
+            image_url = response['urls']['regular']
+            image = Image.open(BytesIO(requests.get(image_url).content))
+            st.image(image, caption=f"{selected_brand} {selected_model}", use_column_width=True)
+        except:
+            st.info("🚗 Car image not available")
