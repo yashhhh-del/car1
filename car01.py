@@ -5,72 +5,94 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import pickle
+import os
 
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
 st.title("🚗 Smart Pricing System for Used Cars - PRO")
-st.markdown("### Upload your dataset to get AI-powered price predictions & market insights!")
+st.markdown("### Upload your dataset or use default dataset to get AI-powered price predictions & market insights!")
 
 sns.set(style="whitegrid")
 
 # -------------------------------
+# Load Default Dataset
+# -------------------------------
+default_file_path = './All_Car_Types_Full_Dataset.xlsx'
+
+if os.path.exists(default_file_path):
+    default_df = pd.read_excel(default_file_path)
+else:
+    default_df = None
+
+# -------------------------------
 # File Upload
 # -------------------------------
-uploaded_file = st.file_uploader("📂 Upload CSV File", type=["csv"])
+uploaded_file = st.file_uploader("📂 Upload CSV or Excel File", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+    if uploaded_file.name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
     st.success("✅ File uploaded successfully!")
-    st.subheader("📊 Full Dataset")
-    st.dataframe(df)
+elif default_df is not None:
+    df = default_df.copy()
+    st.info("Using default dataset (All car types included).")
+else:
+    st.warning("No dataset available. Please upload a file.")
+    st.stop()
 
-    # -------------------------------
-    # Check required columns
-    # -------------------------------
-    required_cols = ['Brand','Model','Fuel_Type','Transmission','Owner','Age','Mileage(km)','Market_Price(INR)']
-    missing_cols = [c for c in required_cols if c not in df.columns]
-    if missing_cols:
-        st.error(f"⚠ Uploaded CSV is missing these columns: {missing_cols}")
-        st.stop()
+# -------------------------------
+# Show Full Dataset
+# -------------------------------
+st.subheader("📊 Full Dataset")
+st.dataframe(df)
 
-    # -------------------------------
-    # Preprocessing
-    # -------------------------------
-    st.subheader("🧹 Data Cleaning & Preprocessing")
-    df = df.dropna()
-    encoders = {}
-    cat_cols = ['Brand','Model','Fuel_Type','Transmission','Owner']
-    for col in cat_cols:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col])
-        encoders[col] = le
+# -------------------------------
+# Preprocessing
+# -------------------------------
+st.subheader("🧹 Data Cleaning & Preprocessing")
+df = df.dropna()
 
-    scaler = StandardScaler()
-    num_cols = ['Age','Mileage(km)']
-    df[num_cols] = scaler.fit_transform(df[num_cols])
+# Encode categorical columns
+cat_cols = df.select_dtypes(include=['object']).columns
+encoders = {}
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+    encoders[col] = le
 
-    # -------------------------------
-    # Model Training
-    # -------------------------------
-    st.subheader("🤖 Model Training & Evaluation")
-    X = df.drop(columns=['Market_Price(INR)'])
-    y = df['Market_Price(INR)']
+# Scale numerical columns
+num_cols = df.select_dtypes(include=['int64','float64']).columns.tolist()
+num_cols = [c for c in num_cols if c not in ['Car_ID', 'Price_INR']]  # Exclude ID and target
+scaler = StandardScaler()
+df[num_cols] = scaler.fit_transform(df[num_cols])
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# -------------------------------
+# Model Training
+# -------------------------------
+st.subheader("🤖 Model Training & Evaluation")
+X = df.drop(columns=['Price_INR'], errors='ignore')
+y = df['Price_INR']
 
-    models = {
-        'Linear Regression': LinearRegression(),
-        'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42),
-        'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42)
-    }
+feature_columns = X.columns.tolist()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    results = {}
+models = {
+    'Linear Regression': LinearRegression(),
+    'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42),
+    'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42)
+}
+
+results = {}
+with st.spinner("Training models, please wait..."):
     for name, model in models.items():
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
@@ -80,82 +102,102 @@ if uploaded_file is not None:
             'R2 Score': r2_score(y_test, y_pred)
         }
 
-    result_df = pd.DataFrame(results).T
-    st.subheader("📈 Model Performance")
-    st.dataframe(result_df)
+st.success("✅ Model training completed!")
+st.subheader("📈 Model Performance Comparison")
+result_df = pd.DataFrame(results).T
+st.dataframe(result_df)
 
-    best_model_name = result_df['R2 Score'].idxmax()
-    best_model = models[best_model_name]
-    st.success(f"🏆 Best Model: {best_model_name}")
+best_model_name = result_df['R2 Score'].idxmax()
+best_model = models[best_model_name]
+st.success(f"🏆 Best Model Selected: **{best_model_name}**")
 
-    # -------------------------------
-    # Price Prediction Form
-    # -------------------------------
-    st.subheader("💰 Predict Car Price")
-    
-    # Dynamic Brand → Model selection
-    inv_brand = {i: cls for i, cls in enumerate(encoders['Brand'].classes_)}
-    selected_brand = st.selectbox("Brand", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
+# -------------------------------
+# Feature Importance (if tree-based)
+# -------------------------------
+if best_model_name in ['Random Forest', 'Gradient Boosting']:
+    st.subheader("🌟 Feature Importance")
+    importance = best_model.feature_importances_
+    fi_df = pd.DataFrame({'Feature': feature_columns, 'Importance': importance}).sort_values(by='Importance', ascending=False)
+    st.bar_chart(fi_df.set_index('Feature'))
 
-    # Filter models for selected brand instantly
-    df_temp = df.copy()
-    df_temp['Brand_orig'] = encoders['Brand'].inverse_transform(df_temp['Brand'])
-    df_temp['Model_orig'] = encoders['Model'].inverse_transform(df_temp['Model'])
-    models_for_brand = df_temp[df_temp['Brand_orig'] == inv_brand[selected_brand]]['Model_orig'].unique()
-    selected_model = st.selectbox("Model", options=models_for_brand)
+# -------------------------------
+# Price Prediction Form
+# -------------------------------
+st.subheader("💰 Predict Car Price")
 
-    # Encode selected brand & model
-    brand_enc = encoders['Brand'].transform([inv_brand[selected_brand]])[0]
-    model_enc = encoders['Model'].transform([selected_model])[0]
+brand_col = 'Brand'
+model_col = 'Model'
 
-    # Other features input
-    input_data = {'Brand': brand_enc, 'Model': model_enc}
-    for col in ['Fuel_Type','Transmission','Owner','Age','Mileage(km)']:
+# Dynamic Brand -> Model
+inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
+selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
+
+df_original = df.copy()
+df_original[brand_col] = df[brand_col].map(lambda x: encoders[brand_col].inverse_transform([x])[0])
+df_original[model_col] = df[model_col].map(lambda x: encoders[model_col].inverse_transform([x])[0])
+
+models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
+models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
+selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
+                              format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
+
+# Other features dynamically
+inputs = {brand_col: selected_brand, model_col: selected_model}
+for col in feature_columns:
+    if col not in [brand_col, model_col]:
         if col in encoders:
-            options = list(encoders[col].classes_)
-            selected = st.selectbox(col, options=options)
-            input_data[col] = encoders[col].transform([selected])[0]
+            inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
+            inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
         else:
-            min_val = int(df[col].min())
-            max_val = int(df[col].max())
-            default_val = int(df[col].median())
-            input_data[col] = st.slider(col, min_value=min_val, max_value=max_val, value=default_val)
+            min_val = float(df[col].min())
+            max_val = float(df[col].max())
+            default_val = float(df[col].median())
+            inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
 
-    if st.button("🔍 Predict Price"):
-        input_df = pd.DataFrame([list(input_data.values())], columns=X.columns)
-        predicted_price = best_model.predict(input_df)[0]
-        min_price = predicted_price*0.9
-        mid_price = predicted_price
-        max_price = predicted_price*1.1
+if st.button("🔍 Predict Price"):
+    input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
+    input_scaled = scaler.transform(input_df)
+    predicted_price = best_model.predict(input_scaled)[0]
 
-        st.subheader("📊 Price Estimation")
-        st.metric("Minimum Negotiation Price", f"₹{min_price:,.0f}")
-        st.metric("Fair Market Price", f"₹{mid_price:,.0f}")
-        st.metric("Maximum Negotiation Price", f"₹{max_price:,.0f}")
+    min_price = predicted_price * 0.9
+    mid_price = predicted_price
+    max_price = predicted_price * 1.1
 
-    # -------------------------------
-    # Market Insights & Visualization
-    # -------------------------------
-    st.subheader("📉 Market Insights")
-    col1, col2 = st.columns(2)
+    st.subheader("📊 Price Estimation")
+    st.metric("Minimum Negotiation Price", f"₹{min_price:,.0f}")
+    st.metric("Fair Market Price", f"₹{mid_price:,.0f}")
+    st.metric("Maximum Negotiation Price", f"₹{max_price:,.0f}")
 
-    with col1:
+    st.subheader("💡 Deal Suggestion")
+    st.info("💰 Good deal if below min, overpriced if above max, fair in between.")
+
+    download_df = input_df.copy()
+    download_df['Predicted_Price'] = predicted_price
+    download_df['Min_Price'] = min_price
+    download_df['Mid_Price'] = mid_price
+    download_df['Max_Price'] = max_price
+    st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
+
+# -------------------------------
+# Market Insights & Visualization
+# -------------------------------
+st.subheader("📉 Market Insights & Visualization")
+col1, col2 = st.columns(2)
+
+with col1:
+    fig, ax = plt.subplots()
+    sns.histplot(df['Price_INR'], kde=True, ax=ax)
+    ax.set_title("Distribution of Market Prices")
+    st.pyplot(fig)
+
+with col2:
+    cat_for_box = None
+    for c in ['Fuel_Type', 'Transmission', 'Owner', 'Insurance_Status']:
+        if c in df.columns:
+            cat_for_box = c
+            break
+    if cat_for_box:
         fig, ax = plt.subplots()
-        sns.histplot(df['Market_Price(INR)'], kde=True, ax=ax)
-        ax.set_title("Distribution of Market Prices")
+        sns.boxplot(x=cat_for_box, y='Price_INR', data=df, ax=ax)
+        ax.set_title(f"{cat_for_box} vs Market Price")
         st.pyplot(fig)
-
-    with col2:
-        cat_col = None
-        for c in ['Fuel_Type','Transmission','Owner']:
-            if c in df.columns:
-                cat_col = c
-                break
-        if cat_col:
-            fig, ax = plt.subplots()
-            sns.boxplot(x=cat_col, y='Market_Price(INR)', data=df, ax=ax)
-            ax.set_title(f"{cat_col} vs Market Price")
-            st.pyplot(fig)
-
-else:
-    st.info("📥 Please upload your CSV to start!")
