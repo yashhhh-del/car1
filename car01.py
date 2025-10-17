@@ -93,6 +93,9 @@ if uploaded_file is not None:
     # Price Prediction Form
     # -------------------------------
     st.subheader("💰 Predict Car Price")
+    input_columns = ['Brand', 'Model', 'Year', 'Age', 'Mileage(km)', 'Fuel_Type',
+                     'Transmission', 'Owner', 'Location']
+
     with st.form("price_form"):
         brand = st.number_input("Brand (encoded value)", min_value=0, value=0)
         model_name = st.number_input("Model (encoded value)", min_value=0, value=0)
@@ -108,7 +111,7 @@ if uploaded_file is not None:
 
     if submit_btn:
         input_data = pd.DataFrame([[brand, model_name, year, age, mileage, fuel, transmission, owner, location]],
-                                  columns=X.columns)
+                                  columns=input_columns)
         input_scaled = scaler.transform(input_data)
         predicted_price = best_model.predict(input_scaled)[0]
 
