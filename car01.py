@@ -119,7 +119,7 @@ if uploaded_file is not None:
     if 'Image_URL' in df_original.columns:
         st.markdown("### 🖼️ Car Images")
         
-        st.write(f"Total cars found: {len(filtered_rows)}")
+        st.write(f"Showing images for: **{selected_brand} {selected_model}** ({len(filtered_rows)} cars found)")
         
         for i in range(0, min(len(filtered_rows), 9), 3):  # Limit to 9 images max
             cols = st.columns(3)
@@ -128,33 +128,20 @@ if uploaded_file is not None:
                 if idx < len(filtered_rows):
                     brand = filtered_rows.iloc[idx]['Brand']
                     model = filtered_rows.iloc[idx]['Model']
+                    year = filtered_rows.iloc[idx]['Year']
                     
-                    # Use Pexels API for real car images (free, no API key needed for basic use)
-                    car_query = f"{brand} {model}".replace(' ', '+')
-                    img_url = f"https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&cs=tinysrgb&w=600&h=400"
+                    # Create search query for specific car
+                    search_query = f"{brand}+{model}+{year}+car".replace(' ', '+')
                     
-                    # Alternate car images from different sources
-                    car_images = [
-                        "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/192999/pexels-photo-192999.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/210019/pexels-photo-210019.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/337909/pexels-photo-337909.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/707046/pexels-photo-707046.jpeg?auto=compress&cs=tinysrgb&w=600&h=400",
-                        "https://images.pexels.com/photos/1077785/pexels-photo-1077785.jpeg?auto=compress&cs=tinysrgb&w=600&h=400"
-                    ]
-                    
-                    # Rotate through different car images
-                    selected_img = car_images[idx % len(car_images)]
+                    # Use Bing Image Search via placeholder (shows relevant car image based on search)
+                    img_url = f"https://tse1.mm.bing.net/th?q={search_query}&w=600&h=400&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=en-IN&adlt=moderate"
                     
                     try:
-                        col.image(selected_img,
+                        col.image(img_url,
                                   use_container_width=True,
-                                  caption=f"{brand} {model}")
+                                  caption=f"{brand} {model} ({year})")
                     except Exception as e:
-                        col.error(f"Image load error: {str(e)}")
+                        col.error(f"Could not load image")
 
     # Show first row for editable inputs
     filtered_row = filtered_rows.iloc[0]
