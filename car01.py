@@ -25,7 +25,11 @@ if uploaded_file is not None:
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
-            df = pd.read_excel(uploaded_file, engine='openpyxl')
+            try:
+                df = pd.read_excel(uploaded_file, engine='openpyxl')
+            except ImportError:
+                st.error("❌ openpyxl library is missing. Install it using `pip install openpyxl`.")
+                st.stop()
         st.success("✅ File uploaded successfully!")
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
@@ -39,7 +43,6 @@ if uploaded_file is not None:
     # -------------------------------
     st.subheader("🧹 Data Cleaning & Preprocessing")
     df = df.dropna()
-
     cat_cols = df.select_dtypes(include=['object']).columns
     encoders = {}
     for col in cat_cols:
@@ -97,48 +100,47 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Price Prediction Form (Dynamic Brand → Model → Car_Type → Fuel_Type)
+    # Price Prediction Form (Dynamic Brand→Model→Other Details)
     # -------------------------------
     st.subheader("💰 Predict Car Price")
+    brand_col = 'Brand'
+    model_col = 'Model'
 
-    # Brand select
-    selected_brand = st.selectbox("Select Brand", options=[encoders['Brand'].inverse_transform([b])[0] for b in df['Brand'].unique()])
+    if brand_col in encoders:
+        inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
+        selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
+    else:
+        selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
 
-    # Filter models based on selected brand
-    brand_filtered = df[df['Brand'] == encoders['Brand'].transform([selected_brand])[0]]
-    models_for_brand = [encoders['Model'].inverse_transform([m])[0] for m in brand_filtered['Model'].unique()]
-    selected_model = st.selectbox("Select Model", options=models_for_brand)
-
-    # Filter car types based on selected brand and model
-    model_filtered = brand_filtered[brand_filtered['Model'] == encoders['Model'].transform([selected_model])[0]]
-    car_types_for_model = [encoders['Car_Type'].inverse_transform([c])[0] for c in model_filtered['Car_Type'].unique()]
-    selected_car_type = st.selectbox("Select Car Type", options=car_types_for_model)
-
-    # Filter fuel types based on brand, model, car type
-    car_filtered = model_filtered[model_filtered['Car_Type'] == encoders['Car_Type'].transform([selected_car_type])[0]]
-    fuel_types_for_car = [encoders['Fuel_Type'].inverse_transform([f])[0] for f in car_filtered['Fuel_Type'].unique()]
-    selected_fuel_type = st.selectbox("Select Fuel Type", options=fuel_types_for_car)
-
-    # -------------------------------
-    # Other feature inputs
-    # -------------------------------
-    inputs = {
-        'Brand': encoders['Brand'].transform([selected_brand])[0],
-        'Model': encoders['Model'].transform([selected_model])[0],
-        'Car_Type': encoders['Car_Type'].transform([selected_car_type])[0],
-        'Fuel_Type': encoders['Fuel_Type'].transform([selected_fuel_type])[0]
-    }
-
-    for col in feature_columns:
-        if col not in ['Brand','Model','Car_Type','Fuel_Type']:
+    if model_col in encoders:
+        df_original = df.copy()
+        for col in [brand_col, model_col, 'Car_Type', 'Fuel_Type']:
             if col in encoders:
-                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
-                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
+                df_original[col] = df[col].map(lambda x: encoders[col].inverse_transform([x])[0])
+        models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
+        models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
+        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded, format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
+    else:
+        selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
+
+    # Automatically set other details based on selected brand+model
+    auto_row = df_original[(df_original['Brand'] == inv_brand[selected_brand]) & 
+                           (df_original['Model'] == encoders[model_col].inverse_transform([selected_model])[0])].iloc[0]
+
+    st.write("### 🚙 Car Details")
+    st.write(auto_row)
+
+    # Prediction inputs
+    inputs = {}
+    for col in feature_columns:
+        if col in ['Brand','Model']:
+            inputs[col] = selected_brand if col == 'Brand' else selected_model
+        else:
+            if col in encoders:
+                val = auto_row[col]
+                inputs[col] = encoders[col].transform([val])[0]
             else:
-                min_val = int(df[col].min())
-                max_val = int(df[col].max())
-                default_val = int(df[col].median())
-                inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
+                inputs[col] = auto_row[col]
 
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
@@ -194,10 +196,12 @@ if uploaded_file is not None:
     st.subheader("🏆 Top 5 Models by Average Market Price")
     if 'Model' in df.columns and 'Market_Price(INR)' in df.columns:
         top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
-        top_models_df['Model'] = [encoders['Model'].inverse_transform([m])[0] for m in top_models_df['Model']]
         st.table(top_models_df)
 
         st.subheader("📋 Details of Top 5 Models")
-        top_model_names = [encoders['Model'].transform([m])[0] for m in top_models_df['Model']]
+        top_model_names = top_models_df['Model'].tolist()
         top_model_details = df[df['Model'].isin(top_model_names)]
-        for col in ['Brand','Model','Car_Type','Fuel_Type']:
+        st.dataframe(top_model_details)
+
+else:
+    st.info("📥 Please upload your dataset to start.")
