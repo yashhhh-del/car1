@@ -91,52 +91,47 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Price Prediction Form (Brand → Model dependent)
+    # Price Prediction Form (Instant Dynamic Brand→Model)
     # -------------------------------
     st.subheader("💰 Predict Car Price")
-    with st.form("price_form"):
-        inputs = {}
-        brand_col = 'Brand'
-        model_col = 'Model'
 
-        # Brand selection
-        if brand_col in encoders:
-            inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
-            selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
-        else:
-            selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
+    brand_col = 'Brand'
+    model_col = 'Model'
 
-        # Filter models for selected brand
-        if model_col in encoders:
-            df_original = df.copy()
-            df_original[brand_col] = df[brand_col].map(lambda x: encoders[brand_col].inverse_transform([x])[0])
-            df_original[model_col] = df[model_col].map(lambda x: encoders[model_col].inverse_transform([x])[0])
+    # Brand select
+    if brand_col in encoders:
+        inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
+        selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
+    else:
+        selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
 
-            models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
-            models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
-            selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
-                                          format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
-        else:
-            selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
+    # Filter models for selected brand instantly
+    if model_col in encoders:
+        df_original = df.copy()
+        df_original[brand_col] = df[brand_col].map(lambda x: encoders[brand_col].inverse_transform([x])[0])
+        df_original[model_col] = df[model_col].map(lambda x: encoders[model_col].inverse_transform([x])[0])
 
-        inputs[brand_col] = selected_brand
-        inputs[model_col] = selected_model
+        models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
+        models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
+        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
+                                      format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
+    else:
+        selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
 
-        # Other features
-        for col in feature_columns:
-            if col not in [brand_col, model_col]:
-                if col in encoders:
-                    inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
-                    inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
-                else:
-                    min_val = int(df[col].min())
-                    max_val = int(df[col].max())
-                    default_val = int(df[col].median())
-                    inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
+    # Other features dynamically
+    inputs = {brand_col: selected_brand, model_col: selected_model}
+    for col in feature_columns:
+        if col not in [brand_col, model_col]:
+            if col in encoders:
+                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
+                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
+            else:
+                min_val = int(df[col].min())
+                max_val = int(df[col].max())
+                default_val = int(df[col].median())
+                inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
 
-        submit_btn = st.form_submit_button("🔍 Predict Price")
-
-    if submit_btn:
+    if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
         input_scaled = scaler.transform(input_df)
         predicted_price = best_model.predict(input_scaled)[0]
