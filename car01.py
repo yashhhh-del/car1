@@ -97,34 +97,48 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Dynamic Brand -> Model -> Car_Type -> Fuel_Type
+    # Price Prediction Form (Dynamic Brand → Model → Car_Type → Fuel_Type)
     # -------------------------------
     st.subheader("💰 Predict Car Price")
-    brand_col = 'Brand'
-    model_col = 'Model'
-    car_type_col = 'Car_Type'
-    fuel_type_col = 'Fuel_Type'
 
-    selected_brand = st.selectbox("Select Brand", options=df['Brand'].unique())
-    brand_filtered = df[df['Brand'] == selected_brand]
+    # Brand select
+    selected_brand = st.selectbox("Select Brand", options=[encoders['Brand'].inverse_transform([b])[0] for b in df['Brand'].unique()])
 
-    selected_model = st.selectbox("Select Model", options=brand_filtered['Model'].unique())
-    model_filtered = brand_filtered[brand_filtered['Model'] == selected_model]
+    # Filter models based on selected brand
+    brand_filtered = df[df['Brand'] == encoders['Brand'].transform([selected_brand])[0]]
+    models_for_brand = [encoders['Model'].inverse_transform([m])[0] for m in brand_filtered['Model'].unique()]
+    selected_model = st.selectbox("Select Model", options=models_for_brand)
 
-    selected_car_type = st.selectbox("Select Car Type", options=model_filtered['Car_Type'].unique())
-    car_type_filtered = model_filtered[model_filtered['Car_Type'] == selected_car_type]
+    # Filter car types based on selected brand and model
+    model_filtered = brand_filtered[brand_filtered['Model'] == encoders['Model'].transform([selected_model])[0]]
+    car_types_for_model = [encoders['Car_Type'].inverse_transform([c])[0] for c in model_filtered['Car_Type'].unique()]
+    selected_car_type = st.selectbox("Select Car Type", options=car_types_for_model)
 
-    selected_fuel_type = st.selectbox("Select Fuel Type", options=car_type_filtered['Fuel_Type'].unique())
-    final_filtered = car_type_filtered[car_type_filtered['Fuel_Type'] == selected_fuel_type]
+    # Filter fuel types based on brand, model, car type
+    car_filtered = model_filtered[model_filtered['Car_Type'] == encoders['Car_Type'].transform([selected_car_type])[0]]
+    fuel_types_for_car = [encoders['Fuel_Type'].inverse_transform([f])[0] for f in car_filtered['Fuel_Type'].unique()]
+    selected_fuel_type = st.selectbox("Select Fuel Type", options=fuel_types_for_car)
 
-    st.subheader("🚘 Selected Car Details")
-    st.dataframe(final_filtered)
+    # -------------------------------
+    # Other feature inputs
+    # -------------------------------
+    inputs = {
+        'Brand': encoders['Brand'].transform([selected_brand])[0],
+        'Model': encoders['Model'].transform([selected_model])[0],
+        'Car_Type': encoders['Car_Type'].transform([selected_car_type])[0],
+        'Fuel_Type': encoders['Fuel_Type'].transform([selected_fuel_type])[0]
+    }
 
-    # Prepare inputs for prediction
-    inputs = {}
     for col in feature_columns:
-        if col in final_filtered.columns:
-            inputs[col] = final_filtered.iloc[0][col]
+        if col not in ['Brand','Model','Car_Type','Fuel_Type']:
+            if col in encoders:
+                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
+                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
+            else:
+                min_val = int(df[col].min())
+                max_val = int(df[col].max())
+                default_val = int(df[col].median())
+                inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
 
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
@@ -151,7 +165,7 @@ if uploaded_file is not None:
         st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
 
     # -------------------------------
-    # Market Insights & Top 5 Models
+    # Market Insights & Visualization
     # -------------------------------
     st.subheader("📉 Market Insights & Visualization")
     col1, col2 = st.columns(2)
@@ -174,15 +188,16 @@ if uploaded_file is not None:
             ax.set_title(f"{cat_for_box} vs Market Price")
             st.pyplot(fig)
 
-    # Top 5 Models
+    # -------------------------------
+    # Top 5 Models Analysis
+    # -------------------------------
     st.subheader("🏆 Top 5 Models by Average Market Price")
-    top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
-    st.table(top_models_df)
+    if 'Model' in df.columns and 'Market_Price(INR)' in df.columns:
+        top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
+        top_models_df['Model'] = [encoders['Model'].inverse_transform([m])[0] for m in top_models_df['Model']]
+        st.table(top_models_df)
 
-    st.subheader("📋 Details of Top 5 Models")
-    top_model_names = top_models_df['Model'].tolist()
-    top_model_details = df[df['Model'].isin(top_model_names)]
-    st.dataframe(top_model_details)
-
-else:
-    st.info("📥 Please upload your dataset to start.")
+        st.subheader("📋 Details of Top 5 Models")
+        top_model_names = [encoders['Model'].transform([m])[0] for m in top_models_df['Model']]
+        top_model_details = df[df['Model'].isin(top_model_names)]
+        for col in ['Brand','Model','Car_Type','Fuel_Type']:
