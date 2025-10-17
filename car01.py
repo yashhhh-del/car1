@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO FIXED
+# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO
 # ======================================================
 
 import streamlit as st
@@ -12,6 +12,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import pickle
 
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
 st.title("🚗 Smart Pricing System for Used Cars - PRO")
@@ -28,7 +29,6 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.success("✅ File uploaded successfully!")
 
-    # Show full dataset
     st.subheader("📊 Full Dataset")
     st.dataframe(df)
 
@@ -38,7 +38,6 @@ if uploaded_file is not None:
     st.subheader("🧹 Data Cleaning & Preprocessing")
     df = df.dropna()
 
-    # Encode categorical columns
     cat_cols = df.select_dtypes(include=['object']).columns
     encoders = {}
     for col in cat_cols:
@@ -77,8 +76,6 @@ if uploaded_file is not None:
             }
 
     st.success("✅ Model training completed!")
-
-    # Display model results
     st.subheader("📈 Model Performance Comparison")
     result_df = pd.DataFrame(results).T
     st.dataframe(result_df)
@@ -87,9 +84,6 @@ if uploaded_file is not None:
     best_model = models[best_model_name]
     st.success(f"🏆 Best Model Selected: **{best_model_name}**")
 
-    # -------------------------------
-    # Feature Importance
-    # -------------------------------
     if best_model_name in ['Random Forest', 'Gradient Boosting']:
         st.subheader("🌟 Feature Importance")
         importance = best_model.feature_importances_
@@ -97,22 +91,48 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Price Prediction Form
+    # Price Prediction Form (Brand → Model dependent)
     # -------------------------------
     st.subheader("💰 Predict Car Price")
     with st.form("price_form"):
         inputs = {}
+        brand_col = 'Brand'
+        model_col = 'Model'
+
+        # Brand selection
+        if brand_col in encoders:
+            inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
+            selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
+        else:
+            selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
+
+        # Filter models for selected brand
+        if model_col in encoders:
+            df_original = df.copy()
+            df_original[brand_col] = df[brand_col].map(lambda x: encoders[brand_col].inverse_transform([x])[0])
+            df_original[model_col] = df[model_col].map(lambda x: encoders[model_col].inverse_transform([x])[0])
+
+            models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
+            models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
+            selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
+                                          format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
+        else:
+            selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
+
+        inputs[brand_col] = selected_brand
+        inputs[model_col] = selected_model
+
+        # Other features
         for col in feature_columns:
-            if col in encoders:
-                # Dropdown for categorical with proper labels
-                inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
-                inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
-            else:
-                # Slider for numerical
-                min_val = int(df[col].min())
-                max_val = int(df[col].max())
-                default_val = int(df[col].median())
-                inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
+            if col not in [brand_col, model_col]:
+                if col in encoders:
+                    inv_map = {i: cls for i, cls in enumerate(encoders[col].classes_)}
+                    inputs[col] = st.selectbox(f"{col}", options=list(inv_map.keys()), format_func=lambda x: inv_map[x])
+                else:
+                    min_val = int(df[col].min())
+                    max_val = int(df[col].max())
+                    default_val = int(df[col].median())
+                    inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
 
         submit_btn = st.form_submit_button("🔍 Predict Price")
 
@@ -130,11 +150,9 @@ if uploaded_file is not None:
         st.metric("Fair Market Price", f"₹{mid_price:,.0f}")
         st.metric("Maximum Negotiation Price", f"₹{max_price:,.0f}")
 
-        # Suggestion
         st.subheader("💡 Deal Suggestion")
         st.info("💰 Good deal if below min, overpriced if above max, fair in between.")
 
-        # Download prediction
         download_df = input_df.copy()
         download_df['Predicted_Price'] = predicted_price
         download_df['Min_Price'] = min_price
