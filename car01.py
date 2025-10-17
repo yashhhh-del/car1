@@ -1,7 +1,3 @@
-# ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO
-# ======================================================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -29,11 +25,7 @@ if uploaded_file is not None:
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
-            try:
-                df = pd.read_excel(uploaded_file, engine='openpyxl')
-            except ImportError:
-                st.error("❌ openpyxl library is missing. Install it using `pip install openpyxl`.")
-                st.stop()
+            df = pd.read_excel(uploaded_file, engine='openpyxl')
         st.success("✅ File uploaded successfully!")
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
@@ -111,12 +103,14 @@ if uploaded_file is not None:
     brand_col = 'Brand'
     model_col = 'Model'
 
+    # Brand select
     if brand_col in encoders:
         inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
         selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
     else:
         selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
 
+    # Model select based on brand
     if model_col in encoders:
         df_original = df.copy()
         df_original[brand_col] = df[brand_col].map(lambda x: encoders[brand_col].inverse_transform([x])[0])
@@ -128,6 +122,14 @@ if uploaded_file is not None:
     else:
         selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
 
+    # Auto-fill full car details for selected brand & model
+    selected_car_details = df_original[(df_original['Brand'] == inv_brand[selected_brand]) & 
+                                       (df_original['Model'] == encoders[model_col].inverse_transform([selected_model])[0])]
+    if not selected_car_details.empty:
+        st.subheader("🚘 Car Details")
+        st.dataframe(selected_car_details)
+
+    # Other features dynamically
     inputs = {brand_col: selected_brand, model_col: selected_model}
     for col in feature_columns:
         if col not in [brand_col, model_col]:
@@ -140,6 +142,9 @@ if uploaded_file is not None:
                 default_val = int(df[col].median())
                 inputs[col] = st.slider(f"{col}", min_value=min_val, max_value=max_val, value=default_val)
 
+    # -------------------------------
+    # Price Prediction
+    # -------------------------------
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
         input_scaled = scaler.transform(input_df)
@@ -165,7 +170,7 @@ if uploaded_file is not None:
         st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
 
     # -------------------------------
-    # Market Insights & Visualization
+    # Market Insights & Top 5 Models
     # -------------------------------
     st.subheader("📉 Market Insights & Visualization")
     col1, col2 = st.columns(2)
@@ -192,14 +197,13 @@ if uploaded_file is not None:
     # Top 5 Models Analysis
     # -------------------------------
     st.subheader("🏆 Top 5 Models by Average Market Price")
-    if 'Model' in df.columns and 'Market_Price(INR)' in df.columns:
-        top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
-        st.table(top_models_df)
+    top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
+    st.table(top_models_df)
 
-        st.subheader("📋 Details of Top 5 Models")
-        top_model_names = top_models_df['Model'].tolist()
-        top_model_details = df[df['Model'].isin(top_model_names)]
-        st.dataframe(top_model_details)
+    st.subheader("📋 Details of Top 5 Models")
+    top_model_names = top_models_df['Model'].tolist()
+    top_model_details = df[df['Model'].isin(top_model_names)]
+    st.dataframe(top_model_details)
 
 else:
     st.info("📥 Please upload your dataset to start.")
