@@ -124,7 +124,7 @@ if uploaded_file is not None:
                 idx = i + j
                 if idx < len(filtered_rows) and pd.notna(filtered_rows.iloc[idx]['Image_URL']):
                     col.image(filtered_rows.iloc[idx]['Image_URL'],
-                              use_column_width=True,
+                              use_container_width=True,
                               caption=f"{filtered_rows.iloc[idx]['Brand']} {filtered_rows.iloc[idx]['Model']}")
 
     # Show first row for editable inputs
