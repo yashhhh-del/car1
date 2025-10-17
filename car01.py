@@ -118,14 +118,27 @@ if uploaded_file is not None:
     # Show all images in horizontal scrollable gallery
     if 'Image_URL' in df_original.columns:
         st.markdown("### 🖼️ Car Images")
-        for i in range(0, len(filtered_rows), 3):
+        
+        # Debug: Show if Image_URL column exists and has data
+        st.write(f"Total cars found: {len(filtered_rows)}")
+        
+        for i in range(0, min(len(filtered_rows), 9), 3):  # Limit to 9 images max
             cols = st.columns(3)
             for j, col in enumerate(cols):
                 idx = i + j
-                if idx < len(filtered_rows) and pd.notna(filtered_rows.iloc[idx]['Image_URL']):
-                    col.image(filtered_rows.iloc[idx]['Image_URL'],
-                              use_container_width=True,
-                              caption=f"{filtered_rows.iloc[idx]['Brand']} {filtered_rows.iloc[idx]['Model']}")
+                if idx < len(filtered_rows):
+                    img_url = filtered_rows.iloc[idx]['Image_URL']
+                    if pd.notna(img_url):
+                        try:
+                            # Direct image URL without Unsplash
+                            fallback_url = f"https://dummyimage.com/600x400/4a90e2/ffffff&text={filtered_rows.iloc[idx]['Brand']}+{filtered_rows.iloc[idx]['Model']}"
+                            col.image(fallback_url,
+                                      use_container_width=True,
+                                      caption=f"{filtered_rows.iloc[idx]['Brand']} {filtered_rows.iloc[idx]['Model']}")
+                        except Exception as e:
+                            col.error(f"Image load error: {str(e)}")
+                    else:
+                        col.warning("No image URL")
 
     # Show first row for editable inputs
     filtered_row = filtered_rows.iloc[0]
