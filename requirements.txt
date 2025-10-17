@@ -1,8 +1,8 @@
+pandasstreamlit
 pandas
 numpy
-scikit-learn
 matplotlib
 seaborn
+scikit-learn
 openpyxl
-streamlit
-
+plotly
