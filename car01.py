@@ -97,45 +97,35 @@ if uploaded_file is not None:
         st.bar_chart(fi_df.set_index('Feature'))
 
     # -------------------------------
-    # Price Prediction Form
+    # Auto-fill details on Brand → Model selection
     # -------------------------------
     st.subheader("💰 Predict Car Price")
+    selected_brand = st.selectbox("Brand", options=df['Brand'].unique())
+    models_for_brand = df[df['Brand'] == selected_brand]['Model'].unique()
+    selected_model = st.selectbox("Model", options=models_for_brand)
 
-    # Step 1: Brand select
-    brand_col = 'Brand'
-    model_col = 'Model'
-    if brand_col in encoders:
-        inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
-        selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
-    else:
-        selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
+    # Auto-fill other details based on selected Brand + Model
+    model_details = df[(df['Brand'] == selected_brand) & (df['Model'] == selected_model)].iloc[0]
 
-    # Step 2: Model select filtered by brand
-    if model_col in encoders:
-        df_original = df.copy()
-        for c in [brand_col, model_col]:
-            df_original[c] = df[c].map(lambda x: encoders[c].inverse_transform([x])[0])
-        models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
-        models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
-        selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
-                                      format_func=lambda x: encoders[model_col].inverse_transform([x])[0])
-    else:
-        selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
+    st.write("### Car Details")
+    car_detail_cols = ['Car_ID','Car_Type','Year','Age','Fuel_Type','Transmission','Mileage(km)',
+                       'Engine_cc','Power_HP','Seats','Market_Price(INR)','Condition','Owner',
+                       'Insurance_Status','Registration_City','Service_History','Accident_History','Car_Availability']
 
-    # Step 3: Auto-fill other features for selected Brand+Model
-    filtered_row = df_original[(df_original[brand_col]==inv_brand[selected_brand]) & 
-                               (df_original[model_col]==encoders[model_col].inverse_transform([selected_model])[0])].iloc[0]
+    for col in car_detail_cols:
+        st.write(f"**{col}**: {model_details[col]}")
+
+    # Inputs for price prediction
     inputs = {}
     for col in feature_columns:
         if col in encoders:
-            val = filtered_row[col] if col in filtered_row else list(encoders[col].classes_)[0]
-            if val in encoders[col].classes_:
-                inputs[col] = encoders[col].transform([val])[0]
-            else:
-                inputs[col] = 0
+            val = model_details[col]
+            inputs[col] = val
         else:
-            inputs[col] = filtered_row[col] if col in filtered_row else 0
+            val = model_details[col] if col in model_details else df[col].median()
+            inputs[col] = val
 
+    # Price Prediction
     if st.button("🔍 Predict Price"):
         input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
         input_scaled = scaler.transform(input_df)
@@ -161,7 +151,7 @@ if uploaded_file is not None:
         st.download_button("⬇️ Download Prediction CSV", download_df.to_csv(index=False), file_name="prediction.csv")
 
     # -------------------------------
-    # Market Insights
+    # Market Insights & Visualization
     # -------------------------------
     st.subheader("📉 Market Insights & Visualization")
     col1, col2 = st.columns(2)
@@ -188,14 +178,13 @@ if uploaded_file is not None:
     # Top 5 Models Analysis
     # -------------------------------
     st.subheader("🏆 Top 5 Models by Average Market Price")
-    if 'Model' in df.columns and 'Market_Price(INR)' in df.columns:
-        top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
-        st.table(top_models_df)
+    top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
+    st.table(top_models_df)
 
-        st.subheader("📋 Details of Top 5 Models")
-        top_model_names = top_models_df['Model'].tolist()
-        top_model_details = df[df['Model'].isin(top_model_names)]
-        st.dataframe(top_model_details)
+    st.subheader("📋 Details of Top 5 Models")
+    top_model_names = top_models_df['Model'].tolist()
+    top_model_details = df[df['Model'].isin(top_model_names)]
+    st.dataframe(top_model_details)
 
 else:
     st.info("📥 Please upload your dataset to start.")
