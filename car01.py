@@ -13,7 +13,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# Streamlit config
 st.set_page_config(page_title="Smart Pricing System for Used Cars", layout="wide")
 st.title("🚗 Smart Pricing System for Used Cars")
 st.markdown("### Upload your used car dataset and get AI-powered price predictions!")
@@ -39,11 +38,13 @@ if uploaded_file is not None:
     st.subheader("🧹 Data Cleaning & Preprocessing")
     df = df.dropna()
 
-    # Encode categorical columns
+    # Encode categorical columns and save mappings
     cat_cols = df.select_dtypes(include=['object']).columns
-    le = LabelEncoder()
+    encoders = {}
     for col in cat_cols:
+        le = LabelEncoder()
         df[col] = le.fit_transform(df[col])
+        encoders[col] = le
 
     # -------------------------------
     # Model Training
@@ -55,6 +56,9 @@ if uploaded_file is not None:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
+    # Save feature columns for input consistency
+    feature_columns = X.columns.tolist()
+
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
     models = {
@@ -64,7 +68,6 @@ if uploaded_file is not None:
     }
 
     results = {}
-
     with st.spinner("Training models, please wait..."):
         for name, model in models.items():
             model.fit(X_train, y_train)
@@ -77,14 +80,11 @@ if uploaded_file is not None:
 
     st.success("✅ Model training completed!")
 
-    # -------------------------------
-    # Display Model Results
-    # -------------------------------
+    # Display model results
     st.subheader("📈 Model Performance Comparison")
     result_df = pd.DataFrame(results).T
     st.dataframe(result_df)
 
-    # Best Model Selection
     best_model_name = result_df['R2 Score'].idxmax()
     best_model = models[best_model_name]
     st.success(f"🏆 Best Model Selected: **{best_model_name}**")
@@ -93,29 +93,18 @@ if uploaded_file is not None:
     # Price Prediction Form
     # -------------------------------
     st.subheader("💰 Predict Car Price")
-    input_columns = ['Brand', 'Model', 'Year', 'Age', 'Mileage(km)', 'Fuel_Type',
-                     'Transmission', 'Owner', 'Location']
-
     with st.form("price_form"):
-        brand = st.number_input("Brand (encoded value)", min_value=0, value=0)
-        model_name = st.number_input("Model (encoded value)", min_value=0, value=0)
-        year = st.number_input("Year", min_value=1990, max_value=2025, value=2018)
-        age = st.number_input("Car Age (years)", min_value=0, value=5)
-        mileage = st.number_input("Mileage (km)", min_value=0, value=50000)
-        fuel = st.number_input("Fuel Type (encoded)", min_value=0, value=0)
-        transmission = st.number_input("Transmission (encoded)", min_value=0, value=0)
-        owner = st.number_input("Owner (encoded)", min_value=0, value=0)
-        location = st.number_input("Location (encoded)", min_value=0, value=0)
+        inputs = {}
+        for col in feature_columns:
+            inputs[col] = st.number_input(f"{col}", min_value=0, value=0)
 
         submit_btn = st.form_submit_button("🔍 Predict Price")
 
     if submit_btn:
-        input_data = pd.DataFrame([[brand, model_name, year, age, mileage, fuel, transmission, owner, location]],
-                                  columns=input_columns)
-        input_scaled = scaler.transform(input_data)
+        input_df = pd.DataFrame([list(inputs.values())], columns=feature_columns)
+        input_scaled = scaler.transform(input_df)
         predicted_price = best_model.predict(input_scaled)[0]
 
-        # Min, Mid, Max price
         min_price = predicted_price * 0.9
         mid_price = predicted_price
         max_price = predicted_price * 1.1
