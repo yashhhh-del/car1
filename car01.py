@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO READY
+# SMART PRICING SYSTEM FOR USED CARS - STREAMLIT PRO
 # ======================================================
 
 import streamlit as st
@@ -12,7 +12,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import pickle
 
 st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide")
 st.title("🚗 Smart Pricing System for Used Cars - PRO")
@@ -109,23 +108,19 @@ if uploaded_file is not None:
     # Price Prediction Form (Dynamic Brand→Model)
     # -------------------------------
     st.subheader("💰 Predict Car Price")
-
     brand_col = 'Brand'
     model_col = 'Model'
 
-    # Brand select
     if brand_col in encoders:
         inv_brand = {i: cls for i, cls in enumerate(encoders[brand_col].classes_)}
         selected_brand = st.selectbox(f"{brand_col}", options=list(inv_brand.keys()), format_func=lambda x: inv_brand[x])
     else:
         selected_brand = st.selectbox(f"{brand_col}", options=df[brand_col].unique())
 
-    # Filter models for selected brand instantly
     if model_col in encoders:
         df_original = df.copy()
         df_original[brand_col] = df[brand_col].map(lambda x: encoders[brand_col].inverse_transform([x])[0])
         df_original[model_col] = df[model_col].map(lambda x: encoders[model_col].inverse_transform([x])[0])
-
         models_for_brand = df_original[df_original[brand_col] == inv_brand[selected_brand]][model_col].unique()
         models_for_brand_encoded = [encoders[model_col].transform([m])[0] for m in models_for_brand]
         selected_model = st.selectbox(f"{model_col}", options=models_for_brand_encoded,
@@ -133,7 +128,6 @@ if uploaded_file is not None:
     else:
         selected_model = st.selectbox(f"{model_col}", options=df[model_col].unique())
 
-    # Other features dynamically
     inputs = {brand_col: selected_brand, model_col: selected_model}
     for col in feature_columns:
         if col not in [brand_col, model_col]:
@@ -193,6 +187,19 @@ if uploaded_file is not None:
             sns.boxplot(x=cat_for_box, y='Market_Price(INR)', data=df, ax=ax)
             ax.set_title(f"{cat_for_box} vs Market Price")
             st.pyplot(fig)
+
+    # -------------------------------
+    # Top 5 Models Analysis
+    # -------------------------------
+    st.subheader("🏆 Top 5 Models by Average Market Price")
+    if 'Model' in df.columns and 'Market_Price(INR)' in df.columns:
+        top_models_df = df.groupby('Model')['Market_Price(INR)'].mean().sort_values(ascending=False).head(5).reset_index()
+        st.table(top_models_df)
+
+        st.subheader("📋 Details of Top 5 Models")
+        top_model_names = top_models_df['Model'].tolist()
+        top_model_details = df[df['Model'].isin(top_model_names)]
+        st.dataframe(top_model_details)
 
 else:
     st.info("📥 Please upload your dataset to start.")
