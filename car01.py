@@ -1,5 +1,5 @@
 # ======================================================
-# SMART PRICING SYSTEM FOR USED CARS - SIMPLE VERSION
+# SMART PRICING SYSTEM FOR USED CARS - ULTIMATE VERSION
 # ======================================================
 
 import streamlit as st
@@ -12,43 +12,182 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from datetime import datetime
+from datetime import datetime, timedelta
+import json
 
 # Page config
-st.set_page_config(page_title="Smart Car Pricing PRO", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Smart Car Pricing ULTIMATE", layout="wide", initial_sidebar_state="expanded")
+
+# Initialize session state
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'username' not in st.session_state:
+    st.session_state.username = ""
+if 'wishlist' not in st.session_state:
+    st.session_state.wishlist = []
+if 'predictions' not in st.session_state:
+    st.session_state.predictions = []
+if 'reviews' not in st.session_state:
+    st.session_state.reviews = {}
+if 'price_alerts' not in st.session_state:
+    st.session_state.price_alerts = []
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+if 'search_history' not in st.session_state:
+    st.session_state.search_history = []
 
 # Custom CSS
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #4A90E2;
-        text-align: center;
-        padding: 1rem 0;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-    }
-</style>
-""", unsafe_allow_html=True)
+if st.session_state.dark_mode:
+    st.markdown("""
+    <style>
+        .main {background-color: #1e1e1e; color: #ffffff;}
+        .stApp {background-color: #1e1e1e;}
+        h1, h2, h3 {color: #4A90E2 !important;}
+        .main-header {color: #4A90E2 !important;}
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+        .main-header {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            padding: 1rem 0;
+        }
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem;
+            border-radius: 10px;
+            color: white;
+            margin: 0.5rem 0;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
-st.markdown('<h1 class="main-header">🚗 Smart Car Pricing System PRO</h1>', unsafe_allow_html=True)
-st.markdown("### AI-Powered Price Predictions, EMI Calculator, Comparison Tool & More!")
+st.markdown('<h1 class="main-header">🚗 Smart Car Pricing System ULTIMATE</h1>', unsafe_allow_html=True)
+st.markdown("### AI-Powered Price Predictions | EMI Calculator | Depreciation Analyzer | & More!")
 
 sns.set(style="whitegrid")
 
-# Sidebar navigation
+# Helper Functions
+def calculate_depreciation(price, year, current_year=2024):
+    age = current_year - year
+    depreciation_rate = 0.15
+    current_value = price * ((1 - depreciation_rate) ** age)
+    future_values = []
+    for i in range(1, 6):
+        future_value = current_value * ((1 - depreciation_rate) ** i)
+        future_values.append({'Year': current_year + i, 'Value': future_value})
+    return current_value, future_values
+
+def calculate_fuel_cost(mileage_per_km, fuel_type, yearly_km=15000):
+    fuel_prices = {'Petrol': 105, 'Diesel': 95, 'CNG': 80, 'Electric': 8, 'Hybrid': 90}
+    price_per_unit = fuel_prices.get(fuel_type, 100)
+    if fuel_type == 'Electric':
+        yearly_cost = (yearly_km / mileage_per_km) * price_per_unit
+    else:
+        yearly_cost = (yearly_km / mileage_per_km) * price_per_unit
+    return yearly_cost
+
+def calculate_total_ownership_cost(car_price, fuel_cost, insurance_percent=0.03, maintenance=50000):
+    insurance = car_price * insurance_percent
+    total_yearly = fuel_cost + insurance + maintenance
+    total_5_years = total_yearly * 5
+    return total_yearly, total_5_years
+
+def calculate_insurance(car_price, age, city_tier=1):
+    base_rate = 0.03
+    age_factor = 1 + (age * 0.02)
+    city_factor = 1 + (city_tier * 0.01)
+    insurance = car_price * base_rate * age_factor * city_factor
+    return insurance
+
+def simple_chatbot(query, df):
+    query = query.lower()
+    if 'cheap' in query or 'budget' in query or 'under' in query:
+        try:
+            price = int(''.join(filter(str.isdigit, query)))
+            cars = df[df['Market_Price(INR)'] <= price].nsmallest(5, 'Market_Price(INR)')
+            return f"Found {len(cars)} cars under ₹{price:,}", cars
+        except:
+            cars = df.nsmallest(5, 'Market_Price(INR)')
+            return "Here are the 5 cheapest cars:", cars
+    elif 'suv' in query:
+        cars = df[df['Car_Type'].str.contains('SUV', case=False, na=False)].head(5)
+        return "Top 5 SUVs:", cars
+    elif 'sedan' in query:
+        cars = df[df['Car_Type'].str.contains('Sedan', case=False, na=False)].head(5)
+        return "Top 5 Sedans:", cars
+    elif 'latest' in query or 'new' in query:
+        cars = df.nlargest(5, 'Year')
+        return "Latest cars:", cars
+    else:
+        return "Try asking: 'cars under 10 lakhs', 'best SUV', 'latest cars'", pd.DataFrame()
+
+# Sidebar
 with st.sidebar:
-    st.title("📊 Navigation")
-    page = st.radio("Go to", ["🏠 Home", "💰 Price Prediction", "📊 Compare Cars", "🧮 EMI Calculator", "📈 Market Insights", "📥 Download Report"])
+    st.title("🔐 User Panel")
+    
+    if not st.session_state.logged_in:
+        tab1, tab2 = st.tabs(["Login", "Signup"])
+        with tab1:
+            username = st.text_input("Username", key="login_user")
+            password = st.text_input("Password", type="password", key="login_pass")
+            if st.button("Login"):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.success(f"Welcome {username}!")
+                st.rerun()
+        with tab2:
+            new_user = st.text_input("Username", key="signup_user")
+            new_pass = st.text_input("Password", type="password", key="signup_pass")
+            email = st.text_input("Email")
+            if st.button("Sign Up"):
+                st.session_state.logged_in = True
+                st.session_state.username = new_user
+                st.success(f"Account created! Welcome {new_user}!")
+                st.rerun()
+    else:
+        st.success(f"👋 Hello, {st.session_state.username}!")
+        if st.button("Logout"):
+            st.session_state.logged_in = False
+            st.session_state.username = ""
+            st.rerun()
     
     st.markdown("---")
-    st.info("💡 Upload your dataset to unlock all features!")
+    
+    # Settings
+    st.title("⚙️ Settings")
+    dark_mode = st.checkbox("🌙 Dark Mode", value=st.session_state.dark_mode)
+    if dark_mode != st.session_state.dark_mode:
+        st.session_state.dark_mode = dark_mode
+        st.rerun()
+    
+    language = st.selectbox("🌐 Language", ["English", "हिंदी", "मराठी"])
+    
+    st.markdown("---")
+    
+    # Navigation
+    st.title("📊 Navigation")
+    page = st.radio("Go to", [
+        "🏠 Home",
+        "💰 Price Prediction",
+        "📊 Compare Cars",
+        "🧮 EMI Calculator",
+        "📉 Depreciation Analyzer",
+        "⛽ Fuel Cost Calculator",
+        "💎 Total Ownership Cost",
+        "🤖 AI Chatbot",
+        "⭐ Reviews & Ratings",
+        "❤️ Wishlist",
+        "🔔 Price Alerts",
+        "📈 Market Insights",
+        "📥 Download Report"
+    ])
 
 # File Upload
 uploaded_file = st.file_uploader("📂 Upload CSV/XLSX File", type=["csv","xlsx"])
@@ -116,67 +255,78 @@ if uploaded_file is not None:
     # HOME PAGE
     # ============================================
     if page == "🏠 Home":
-        st.subheader("📊 Dataset Overview")
+        st.subheader("📊 Dashboard Overview")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Total Cars", f"{len(df_clean):,}")
         with col2:
-            st.metric("Unique Brands", f"{df_clean['Brand'].nunique()}")
+            st.metric("Brands", f"{df_clean['Brand'].nunique()}")
         with col3:
-            st.metric("Avg Price", f"₹{df_clean['Market_Price(INR)'].mean():,.0f}")
+            st.metric("Avg Price", f"₹{df_clean['Market_Price(INR)'].mean()/100000:.1f}L")
         with col4:
-            st.metric("Price Range", f"₹{df_clean['Market_Price(INR)'].min():,.0f} - ₹{df_clean['Market_Price(INR)'].max():,.0f}")
+            st.metric("Wishlist", len(st.session_state.wishlist))
+        with col5:
+            st.metric("Predictions", len(st.session_state.predictions))
 
         st.markdown("---")
         
-        # Top Stats
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("🏆 Top 10 Most Popular Brands")
+            st.subheader("🏆 Top 10 Brands")
             brand_counts = df_clean['Brand'].value_counts().head(10)
             fig, ax = plt.subplots(figsize=(10, 6))
             sns.barplot(x=brand_counts.values, y=brand_counts.index, palette='viridis', ax=ax)
             ax.set_xlabel('Number of Cars')
-            ax.set_ylabel('Brand')
             st.pyplot(fig)
         
         with col2:
-            st.subheader("💎 Top 10 Most Expensive Cars")
-            top_expensive = df_clean.nlargest(10, 'Market_Price(INR)')[['Brand', 'Model', 'Market_Price(INR)']]
+            st.subheader("💎 Top 10 Expensive Cars")
+            top_expensive = df_clean.nlargest(10, 'Market_Price(INR)')[['Brand', 'Model', 'Market_Price(INR)', 'Year']]
             top_expensive['Price'] = top_expensive['Market_Price(INR)'].apply(lambda x: f"₹{x:,.0f}")
-            st.dataframe(top_expensive[['Brand', 'Model', 'Price']], use_container_width=True, hide_index=True)
+            st.dataframe(top_expensive[['Brand', 'Model', 'Year', 'Price']], use_container_width=True, hide_index=True)
 
         st.markdown("---")
-        st.subheader("🔍 Quick Search Dataset")
         
-        col1, col2 = st.columns(2)
+        # Recent Search History
+        if st.session_state.search_history:
+            st.subheader("🕒 Recent Searches")
+            recent = pd.DataFrame(st.session_state.search_history[-5:])
+            st.dataframe(recent, use_container_width=True, hide_index=True)
+
+        # Quick Search
+        st.subheader("🔍 Quick Search")
+        col1, col2, col3 = st.columns(3)
         with col1:
-            search_brand = st.multiselect("Filter by Brand", options=["All"] + sorted(df_clean['Brand'].unique().tolist()))
+            search_brand = st.multiselect("Brand", ["All"] + sorted(df_clean['Brand'].unique().tolist()), key="home_brand")
         with col2:
             if 'Fuel_Type' in df_clean.columns:
-                search_fuel = st.multiselect("Filter by Fuel Type", options=["All"] + sorted(df_clean['Fuel_Type'].unique().tolist()))
+                search_fuel = st.multiselect("Fuel Type", ["All"] + sorted(df_clean['Fuel_Type'].unique().tolist()), key="home_fuel")
             else:
                 search_fuel = ["All"]
+        with col3:
+            price_range = st.slider("Price Range (Lakhs)", 0, int(df_clean['Market_Price(INR)'].max()/100000), (0, 50), key="home_price")
         
         filtered_data = df_clean.copy()
         if search_brand and "All" not in search_brand:
             filtered_data = filtered_data[filtered_data['Brand'].isin(search_brand)]
         if search_fuel and "All" not in search_fuel and 'Fuel_Type' in df_clean.columns:
             filtered_data = filtered_data[filtered_data['Fuel_Type'].isin(search_fuel)]
+        filtered_data = filtered_data[(filtered_data['Market_Price(INR)'] >= price_range[0]*100000) & 
+                                     (filtered_data['Market_Price(INR)'] <= price_range[1]*100000)]
         
-        st.dataframe(filtered_data, use_container_width=True)
+        st.write(f"Found {len(filtered_data)} cars")
+        st.dataframe(filtered_data.head(20), use_container_width=True)
         
-        # Download filtered data
         csv = filtered_data.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Filtered Data", csv, "filtered_cars.csv", "text/csv")
+        st.download_button("📥 Download Results", csv, "search_results.csv", "text/csv")
 
     # ============================================
     # PRICE PREDICTION PAGE
     # ============================================
     elif page == "💰 Price Prediction":
-        st.subheader("💰 Predict Car Price")
+        st.subheader("💰 AI-Powered Price Prediction")
         
         col1, col2 = st.columns([1, 1])
         
@@ -186,31 +336,27 @@ if uploaded_file is not None:
             st.success(f"🏆 Best Model: **{best_model_name}**")
         
         with col2:
-            st.markdown("### 📊 Model Comparison")
+            st.markdown("### 📊 Accuracy Comparison")
             fig, ax = plt.subplots(figsize=(8, 5))
             models_list = list(results.keys())
             r2_scores = [results[m]['R2 Score'] for m in models_list]
             sns.barplot(x=r2_scores, y=models_list, palette='coolwarm', ax=ax)
             ax.set_xlabel('R2 Score')
-            ax.set_title('Model Performance')
             st.pyplot(fig)
 
         st.markdown("---")
         
-        # Brand and Model Selection
         brands = sorted(df_clean['Brand'].unique())
-        selected_brand = st.selectbox("🚘 Select Brand", brands)
+        selected_brand = st.selectbox("🚘 Select Brand", brands, key="pred_brand")
 
         filtered_models = sorted(df_clean[df_clean['Brand'] == selected_brand]['Model'].unique())
-        selected_model = st.selectbox("🔧 Select Model", filtered_models)
+        selected_model = st.selectbox("🔧 Select Model", filtered_models, key="pred_model")
 
         filtered_rows = df_clean[(df_clean['Brand'] == selected_brand) & 
                                 (df_clean['Model'] == selected_model)]
 
-        # Car Images Gallery
         if len(filtered_rows) > 0:
-            st.markdown("### 🖼️ Car Images")
-            st.write(f"Showing images for: **{selected_brand} {selected_model}** ({len(filtered_rows)} cars found)")
+            st.markdown("### 🖼️ Car Gallery")
             
             for i in range(0, min(len(filtered_rows), 6), 3):
                 cols = st.columns(3)
@@ -231,10 +377,9 @@ if uploaded_file is not None:
 
             st.markdown("---")
             
-            # Auto-fill inputs
             filtered_row = filtered_rows.iloc[0]
             
-            st.markdown("### 🧩 Car Details (Editable)")
+            st.markdown("### 🧩 Car Details")
             
             col1, col2, col3 = st.columns(3)
             inputs = {}
@@ -254,8 +399,21 @@ if uploaded_file is not None:
                             inputs[col] = st.slider(f"{col}", min_val, max_val, default_val, key=f"pred_{col}")
                     feature_idx += 1
 
-            # Prediction
-            if st.button("🔍 Predict Price", type="primary"):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                predict_btn = st.button("🔍 Predict Price", type="primary", use_container_width=True)
+            with col2:
+                add_wishlist = st.button("❤️ Add to Wishlist", use_container_width=True)
+            
+            if add_wishlist:
+                wishlist_item = f"{selected_brand} {selected_model}"
+                if wishlist_item not in st.session_state.wishlist:
+                    st.session_state.wishlist.append(wishlist_item)
+                    st.success("Added to wishlist!")
+                else:
+                    st.info("Already in wishlist!")
+            
+            if predict_btn:
                 input_df = pd.DataFrame([inputs])
                 for col in encoders:
                     if col in input_df:
@@ -277,23 +435,25 @@ if uploaded_file is not None:
                 st.balloons()
                 
                 # Save prediction
-                if 'predictions' not in st.session_state:
-                    st.session_state.predictions = []
-                
                 st.session_state.predictions.append({
                     'Brand': selected_brand,
                     'Model': selected_model,
-                    'Predicted_Price': predicted_price,
+                    'Predicted_Price': f"₹{predicted_price:,.0f}",
                     'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+                
+                # Save search history
+                st.session_state.search_history.append({
+                    'Search': f"{selected_brand} {selected_model}",
+                    'Price': f"₹{predicted_price:,.0f}",
+                    'Time': datetime.now().strftime("%H:%M:%S")
                 })
 
     # ============================================
     # COMPARE CARS PAGE
     # ============================================
     elif page == "📊 Compare Cars":
-        st.subheader("📊 Compare Multiple Cars")
-        
-        st.info("Select 2-3 cars to compare side-by-side")
+        st.subheader("📊 Compare Multiple Cars Side-by-Side")
         
         num_cars = st.slider("Number of cars to compare", 2, 3, 2)
         
@@ -311,7 +471,6 @@ if uploaded_file is not None:
                 
                 car_data = df_clean[(df_clean['Brand'] == brand) & (df_clean['Model'] == model)].iloc[0]
                 
-                # Show car image
                 search_query = f"{brand}+{model}+car".replace(' ', '+')
                 img_url = f"https://tse1.mm.bing.net/th?q={search_query}&w=400&h=300&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=en-IN&adlt=moderate"
                 try:
@@ -327,37 +486,39 @@ if uploaded_file is not None:
                     'Fuel_Type': car_data.get('Fuel_Type', 'N/A'),
                     'Transmission': car_data.get('Transmission', 'N/A'),
                     'Mileage': car_data.get('Mileage(km)', 'N/A'),
-                    'Power_HP': car_data.get('Power_HP', 'N/A')
+                    'Power_HP': car_data.get('Power_HP', 'N/A'),
+                    'Engine_cc': car_data.get('Engine_cc', 'N/A')
                 })
         
-        if st.button("🔄 Compare Now"):
+        if st.button("🔄 Compare Now", type="primary"):
             st.markdown("---")
-            st.subheader("📋 Comparison Results")
+            st.subheader("📋 Detailed Comparison")
             
             comparison_df = pd.DataFrame(comparison_data).T
             comparison_df.columns = [f"Car {i+1}" for i in range(num_cars)]
             st.dataframe(comparison_df, use_container_width=True)
             
-            # Price comparison chart
+            # Price comparison
             st.markdown("### 💰 Price Comparison")
             fig, ax = plt.subplots(figsize=(10, 5))
             car_names = [f"{d['Brand']} {d['Model']}" for d in comparison_data]
             prices = [d['Price'] for d in comparison_data]
             sns.barplot(x=car_names, y=prices, palette='Set2', ax=ax)
             ax.set_ylabel('Price (INR)')
-            ax.set_title('Price Comparison')
             plt.xticks(rotation=45, ha='right')
             st.pyplot(fig)
             
             # Best value
             best_idx = prices.index(min(prices))
+            worst_idx = prices.index(max(prices))
             st.success(f"💰 Best Value: **{comparison_data[best_idx]['Brand']} {comparison_data[best_idx]['Model']}** at ₹{comparison_data[best_idx]['Price']:,.0f}")
+            st.info(f"💎 Premium Option: **{comparison_data[worst_idx]['Brand']} {comparison_data[worst_idx]['Model']}** at ₹{comparison_data[worst_idx]['Price']:,.0f}")
 
     # ============================================
     # EMI CALCULATOR PAGE
     # ============================================
     elif page == "🧮 EMI Calculator":
-        st.subheader("🧮 EMI Calculator")
+        st.subheader("🧮 Loan EMI Calculator")
         
         col1, col2 = st.columns([1, 1])
         
@@ -369,7 +530,6 @@ if uploaded_file is not None:
             interest_rate = st.slider("Annual Interest Rate (%)", 5.0, 20.0, 9.5, step=0.5)
             tenure_years = st.slider("Loan Tenure (Years)", 1, 7, 5)
             
-            # Calculate EMI
             principal = car_price - (car_price * down_payment / 100)
             rate_monthly = interest_rate / (12 * 100)
             tenure_months = tenure_years * 12
@@ -386,11 +546,10 @@ if uploaded_file is not None:
             st.markdown("### EMI Breakdown")
             
             st.metric("Monthly EMI", f"₹{emi:,.0f}")
-            st.metric("Total Amount Payable", f"₹{total_amount:,.0f}")
+            st.metric("Total Payable", f"₹{total_amount:,.0f}")
             st.metric("Total Interest", f"₹{total_interest:,.0f}")
             st.metric("Down Payment", f"₹{car_price * down_payment / 100:,.0f}")
             
-            # Pie chart
             fig, ax = plt.subplots(figsize=(6, 6))
             ax.pie([principal, total_interest], labels=['Principal', 'Interest'], 
                    autopct='%1.1f%%', startangle=90, colors=['#4A90E2', '#E24A4A'])
@@ -399,7 +558,6 @@ if uploaded_file is not None:
         
         st.markdown("---")
         
-        # Payment schedule
         st.subheader("📅 Payment Schedule (First 12 Months)")
         
         schedule = []
@@ -419,162 +577,55 @@ if uploaded_file is not None:
             })
         
         st.dataframe(pd.DataFrame(schedule), use_container_width=True, hide_index=True)
+        
+        # Bank Comparison
+        st.markdown("---")
+        st.subheader("🏦 Bank Loan Comparison")
+        
+        banks = {
+            'HDFC Bank': 9.5,
+            'SBI': 9.0,
+            'ICICI Bank': 9.8,
+            'Axis Bank': 9.7,
+            'Kotak Mahindra': 9.6
+        }
+        
+        bank_comparison = []
+        for bank, rate in banks.items():
+            rate_m = rate / (12 * 100)
+            emi_bank = principal * rate_m * ((1 + rate_m)**tenure_months) / (((1 + rate_m)**tenure_months) - 1)
+            total_bank = emi_bank * tenure_months
+            bank_comparison.append({
+                'Bank': bank,
+                'Interest Rate': f"{rate}%",
+                'Monthly EMI': f"₹{emi_bank:,.0f}",
+                'Total Amount': f"₹{total_bank:,.0f}"
+            })
+        
+        st.dataframe(pd.DataFrame(bank_comparison), use_container_width=True, hide_index=True)
 
     # ============================================
-    # MARKET INSIGHTS PAGE
+    # DEPRECIATION ANALYZER PAGE
     # ============================================
-    elif page == "📈 Market Insights":
-        st.subheader("📈 Market Insights & Analytics")
+    elif page == "📉 Depreciation Analyzer":
+        st.subheader("📉 Car Depreciation Analyzer")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Price Distribution", "⛽ Fuel Analysis", "🏙️ City-wise", "📅 Year Trends"])
+        brands = sorted(df_clean['Brand'].unique())
+        selected_brand = st.selectbox("Select Brand", brands, key="dep_brand")
         
-        with tab1:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig, ax = plt.subplots(figsize=(8, 5))
-                sns.histplot(df_clean['Market_Price(INR)'], kde=True, bins=50, ax=ax, color='skyblue')
-                ax.set_title('Price Distribution')
-                ax.set_xlabel('Price (INR)')
-                st.pyplot(fig)
-            
-            with col2:
-                fig, ax = plt.subplots(figsize=(8, 5))
-                sns.boxplot(y=df_clean['Market_Price(INR)'], ax=ax, color='lightgreen')
-                ax.set_title('Price Range Analysis')
-                st.pyplot(fig)
+        filtered_models = sorted(df_clean[df_clean['Brand'] == selected_brand]['Model'].unique())
+        selected_model = st.selectbox("Select Model", filtered_models, key="dep_model")
         
-        with tab2:
-            if 'Fuel_Type' in df_clean.columns:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    fig, ax = plt.subplots(figsize=(8, 5))
-                    sns.boxplot(data=df_clean, x='Fuel_Type', y='Market_Price(INR)', ax=ax, palette='Set3')
-                    ax.set_title('Price by Fuel Type')
-                    plt.xticks(rotation=45)
-                    st.pyplot(fig)
-                
-                with col2:
-                    fuel_counts = df_clean['Fuel_Type'].value_counts()
-                    fig, ax = plt.subplots(figsize=(6, 6))
-                    ax.pie(fuel_counts.values, labels=fuel_counts.index, autopct='%1.1f%%', startangle=90)
-                    ax.set_title('Fuel Type Distribution')
-                    st.pyplot(fig)
-        
-        with tab3:
-            if 'Registration_City' in df_clean.columns:
-                city_avg = df_clean.groupby('Registration_City')['Market_Price(INR)'].mean().sort_values(ascending=False).head(10)
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x=city_avg.values, y=city_avg.index, palette='rocket', ax=ax)
-                ax.set_xlabel('Average Price (INR)')
-                ax.set_title('Average Price by City (Top 10)')
-                st.pyplot(fig)
-        
-        with tab4:
-            year_avg = df_clean.groupby('Year')['Market_Price(INR)'].mean().sort_index()
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(year_avg.index, year_avg.values, marker='o', linewidth=2, markersize=8, color='#4A90E2')
-            ax.set_xlabel('Year')
-            ax.set_ylabel('Average Price (INR)')
-            ax.set_title('Average Price Trend by Year')
-            ax.grid(True, alpha=0.3)
-            st.pyplot(fig)
-
-    # ============================================
-    # DOWNLOAD REPORT PAGE
-    # ============================================
-    elif page == "📥 Download Report":
-        st.subheader("📥 Download Reports & Data")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 📊 Available Reports")
-            
-            # Full dataset
-            csv_full = df_clean.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "📄 Download Full Dataset (CSV)",
-                csv_full,
-                "full_car_dataset.csv",
-                "text/csv",
-                key='download-csv'
-            )
-            
-            # Model performance
-            csv_model = result_df.to_csv().encode('utf-8')
-            st.download_button(
-                "🤖 Download Model Performance (CSV)",
-                csv_model,
-                "model_performance.csv",
-                "text/csv",
-                key='download-model'
-            )
-            
-            # Price summary
-            summary_stats = df_clean['Market_Price(INR)'].describe().to_frame()
-            csv_summary = summary_stats.to_csv().encode('utf-8')
-            st.download_button(
-                "📈 Download Price Summary (CSV)",
-                csv_summary,
-                "price_summary.csv",
-                "text/csv",
-                key='download-summary'
-            )
-        
-        with col2:
-            st.markdown("### 📋 Recent Predictions")
-            
-            if 'predictions' in st.session_state and len(st.session_state.predictions) > 0:
-                pred_df = pd.DataFrame(st.session_state.predictions)
-                st.dataframe(pred_df, use_container_width=True, hide_index=True)
-                
-                csv_pred = pred_df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "💾 Download Predictions History",
-                    csv_pred,
-                    "prediction_history.csv",
-                    "text/csv",
-                    key='download-pred'
-                )
-            else:
-                st.info("No predictions made yet!")
+        car_data = df_clean[(df_clean['Brand'] == selected_brand) & 
+                           (df_clean['Model'] == selected_model)].iloc[0]
         
         st.markdown("---")
-        st.success("💡 Tip: You can copy data directly from tables and paste into Excel!")
-
-else:
-    st.info("📥 Please upload your dataset to start!")
-    
-    st.markdown("---")
-    st.markdown("### 🎯 Features Available:")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        **💰 Price Prediction**
-        - AI-powered estimation
-        - Multiple ML models
-        - Real-time car images
-        - Auto-fill details
-        """)
-    
-    with col2:
-        st.markdown("""
-        **📊 Compare Cars**
-        - Side-by-side view
-        - Visual charts
-        - Best value finder
-        - Multiple cars
-        """)
-    
-    with col3:
-        st.markdown("""
-        **🧮 EMI Calculator**
-        - Monthly payments
-        - Loan breakdown
-        - Payment schedule
-        - Interest analysis
-        """)
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("### Current Car Details")
+            st.write(f"**Brand:** {selected_brand}")
+            st.write(f"**Model:** {selected_model}")
+            st.write(f"**Year:** {car_data['Year']}")
+            st.
