@@ -628,4 +628,445 @@ if uploaded_file is not None:
             st.write(f"**Brand:** {selected_brand}")
             st.write(f"**Model:** {selected_model}")
             st.write(f"**Year:** {car_data['Year']}")
-            st.
+            st.write(f"**Current Price:** ₹{car_data['Market_Price(INR)']:,.0f}")
+            
+            current_value, future_values = calculate_depreciation(car_data['Market_Price(INR)'], car_data['Year'])
+            
+            st.markdown("### Depreciation Analysis")
+            st.metric("Current Estimated Value", f"₹{current_value:,.0f}")
+            st.metric("Total Depreciation", f"₹{car_data['Market_Price(INR)'] - current_value:,.0f}")
+        
+        with col2:
+            st.markdown("### 5-Year Future Projection")
+            
+            future_df = pd.DataFrame(future_values)
+            
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.plot(future_df['Year'], future_df['Value'], marker='o', linewidth=2, markersize=8, color='#E24A4A')
+            ax.set_xlabel('Year')
+            ax.set_ylabel('Estimated Value (INR)')
+            ax.set_title('Depreciation Trend')
+            ax.grid(True, alpha=0.3)
+            st.pyplot(fig)
+        
+        st.markdown("---")
+        st.subheader("📊 Future Value Breakdown")
+        
+        future_display = future_df.copy()
+        future_display['Value'] = future_display['Value'].apply(lambda x: f"₹{x:,.0f}")
+        st.dataframe(future_display, use_container_width=True, hide_index=True)
+        
+        st.info("💡 Cars typically depreciate 15% per year. Luxury cars may depreciate faster.")
+
+    # ============================================
+    # FUEL COST CALCULATOR PAGE
+    # ============================================
+    elif page == "⛽ Fuel Cost Calculator":
+        st.subheader("⛽ Fuel Cost Calculator")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("### Enter Details")
+            
+            fuel_type = st.selectbox("Fuel Type", ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'])
+            mileage = st.number_input("Mileage (km per liter/kWh)", min_value=5.0, max_value=50.0, value=15.0, step=0.5)
+            yearly_km = st.number_input("Yearly Kilometers", min_value=1000, max_value=50000, value=15000, step=1000)
+            years = st.slider("Calculate for (years)", 1, 10, 5)
+            
+            yearly_cost = calculate_fuel_cost(mileage, fuel_type, yearly_km)
+            total_cost = yearly_cost * years
+        
+        with col2:
+            st.markdown("### Cost Breakdown")
+            
+            st.metric("Yearly Fuel Cost", f"₹{yearly_cost:,.0f}")
+            st.metric("Monthly Fuel Cost", f"₹{yearly_cost/12:,.0f}")
+            st.metric(f"Total Cost ({years} years)", f"₹{total_cost:,.0f}")
+            
+            fig, ax = plt.subplots(figsize=(6, 6))
+            costs_by_fuel = []
+            fuel_types = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid']
+            for ft in fuel_types:
+                cost = calculate_fuel_cost(mileage, ft, yearly_km)
+                costs_by_fuel.append(cost)
+            
+            ax.bar(fuel_types, costs_by_fuel, color=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'])
+            ax.set_ylabel('Yearly Cost (INR)')
+            ax.set_title('Fuel Cost Comparison')
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
+        
+        st.markdown("---")
+        st.subheader("💰 Savings Comparison")
+        
+        if fuel_type != 'Electric':
+            electric_cost = calculate_fuel_cost(mileage * 1.5, 'Electric', yearly_km)
+            savings = yearly_cost - electric_cost
+            st.success(f"💡 Switching to Electric could save you ₹{savings:,.0f} per year!")
+
+    # ============================================
+    # TOTAL OWNERSHIP COST PAGE
+    # ============================================
+    elif page == "💎 Total Ownership Cost":
+        st.subheader("💎 Total Cost of Ownership Calculator")
+        
+        brands = sorted(df_clean['Brand'].unique())
+        selected_brand = st.selectbox("Select Brand", brands, key="tco_brand")
+        
+        filtered_models = sorted(df_clean[df_clean['Brand'] == selected_brand]['Model'].unique())
+        selected_model = st.selectbox("Select Model", filtered_models, key="tco_model")
+        
+        car_data = df_clean[(df_clean['Brand'] == selected_brand) & 
+                           (df_clean['Model'] == selected_model)].iloc[0]
+        
+        st.markdown("---")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("### Input Parameters")
+            
+            car_price = car_data['Market_Price(INR)']
+            st.write(f"**Car Price:** ₹{car_price:,.0f}")
+            
+            fuel_type = car_data.get('Fuel_Type', 'Petrol')
+            mileage = st.number_input("Mileage (km/l)", min_value=5.0, max_value=30.0, value=15.0)
+            yearly_km = st.number_input("Yearly Distance (km)", min_value=5000, max_value=30000, value=15000)
+            maintenance = st.number_input("Yearly Maintenance (₹)", min_value=10000, max_value=200000, value=50000)
+            
+            fuel_cost = calculate_fuel_cost(mileage, fuel_type, yearly_km)
+            insurance = calculate_insurance(car_price, 2024 - car_data['Year'])
+            
+            yearly_total, total_5_years = calculate_total_ownership_cost(car_price, fuel_cost, insurance/car_price, maintenance)
+        
+        with col2:
+            st.markdown("### Cost Breakdown")
+            
+            st.metric("Yearly Fuel Cost", f"₹{fuel_cost:,.0f}")
+            st.metric("Yearly Insurance", f"₹{insurance:,.0f}")
+            st.metric("Yearly Maintenance", f"₹{maintenance:,.0f}")
+            st.metric("Total Yearly Cost", f"₹{yearly_total:,.0f}")
+            st.metric("5-Year Ownership Cost", f"₹{total_5_years:,.0f}")
+        
+        st.markdown("---")
+        
+        # Pie chart
+        st.subheader("📊 Cost Distribution")
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        costs = [fuel_cost, insurance, maintenance]
+        labels = ['Fuel', 'Insurance', 'Maintenance']
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
+        ax.pie(costs, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90)
+        ax.set_title('Yearly Cost Distribution')
+        st.pyplot(fig)
+        
+        st.info("💡 Total ownership cost includes depreciation, fuel, insurance, and maintenance over 5 years.")
+
+    # ============================================
+    # AI CHATBOT PAGE
+    # ============================================
+    elif page == "🤖 AI Chatbot":
+        st.subheader("🤖 AI Car Assistant")
+        
+        st.markdown("### Ask me anything about cars!")
+        st.write("Try: 'cars under 10 lakhs', 'best SUV', 'latest cars', 'cheapest sedan'")
+        
+        user_query = st.text_input("Your Question:", placeholder="e.g., Show me cars under 15 lakhs")
+        
+        if st.button("🔍 Ask AI", type="primary"):
+            if user_query:
+                response, cars_df = simple_chatbot(user_query, df_clean)
+                
+                st.success(f"🤖 {response}")
+                
+                if not cars_df.empty:
+                    st.dataframe(cars_df[['Brand', 'Model', 'Year', 'Market_Price(INR)']].head(10), use_container_width=True, hide_index=True)
+            else:
+                st.warning("Please enter a question!")
+        
+        st.markdown("---")
+        st.subheader("💡 Popular Questions")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Cars under 10 lakhs"):
+                response, cars_df = simple_chatbot("under 1000000", df_clean)
+                st.success(response)
+                if not cars_df.empty:
+                    st.dataframe(cars_df[['Brand', 'Model', 'Market_Price(INR)']].head(5), use_container_width=True, hide_index=True)
+            
+            if st.button("Best SUVs"):
+                response, cars_df = simple_chatbot("suv", df_clean)
+                st.success(response)
+                if not cars_df.empty:
+                    st.dataframe(cars_df[['Brand', 'Model', 'Market_Price(INR)']].head(5), use_container_width=True, hide_index=True)
+        
+        with col2:
+            if st.button("Latest Cars"):
+                response, cars_df = simple_chatbot("latest", df_clean)
+                st.success(response)
+                if not cars_df.empty:
+                    st.dataframe(cars_df[['Brand', 'Model', 'Year', 'Market_Price(INR)']].head(5), use_container_width=True, hide_index=True)
+            
+            if st.button("Cheapest Cars"):
+                response, cars_df = simple_chatbot("cheap", df_clean)
+                st.success(response)
+                if not cars_df.empty:
+                    st.dataframe(cars_df[['Brand', 'Model', 'Market_Price(INR)']].head(5), use_container_width=True, hide_index=True)
+
+    # ============================================
+    # REVIEWS & RATINGS PAGE
+    # ============================================
+    elif page == "⭐ Reviews & Ratings":
+        st.subheader("⭐ Reviews & Ratings")
+        
+        if not st.session_state.logged_in:
+            st.warning("⚠️ Please login to add reviews!")
+        else:
+            st.markdown("### Add Your Review")
+            
+            brands = sorted(df_clean['Brand'].unique())
+            review_brand = st.selectbox("Select Brand", brands, key="review_brand")
+            
+            filtered_models = sorted(df_clean[df_clean['Brand'] == review_brand]['Model'].unique())
+            review_model = st.selectbox("Select Model", filtered_models, key="review_model")
+            
+            rating = st.slider("Rating", 1, 5, 4)
+            review_text = st.text_area("Your Review", placeholder="Share your experience...")
+            
+            if st.button("Submit Review", type="primary"):
+                car_key = f"{review_brand} {review_model}"
+                if car_key not in st.session_state.reviews:
+                    st.session_state.reviews[car_key] = []
+                
+                st.session_state.reviews[car_key].append({
+                    'User': st.session_state.username,
+                    'Rating': rating,
+                    'Review': review_text,
+                    'Date': datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success("Review submitted!")
+        
+        st.markdown("---")
+        st.subheader("📝 All Reviews")
+        
+        if st.session_state.reviews:
+            for car, reviews in st.session_state.reviews.items():
+                with st.expander(f"{car} ({len(reviews)} reviews)"):
+                    avg_rating = sum([r['Rating'] for r in reviews]) / len(reviews)
+                    st.write(f"⭐ Average Rating: {avg_rating:.1f}/5")
+                    
+                    for review in reviews:
+                        st.markdown(f"**{review['User']}** - {'⭐' * review['Rating']} ({review['Date']})")
+                        st.write(review['Review'])
+                        st.markdown("---")
+        else:
+            st.info("No reviews yet. Be the first to review!")
+
+    # ============================================
+    # WISHLIST PAGE
+    # ============================================
+    elif page == "❤️ Wishlist":
+        st.subheader("❤️ My Wishlist")
+        
+        if not st.session_state.logged_in:
+            st.warning("⚠️ Please login to access wishlist!")
+        else:
+            if st.session_state.wishlist:
+                st.write(f"You have {len(st.session_state.wishlist)} cars in your wishlist")
+                
+                for idx, car in enumerate(st.session_state.wishlist):
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.write(f"🚗 {car}")
+                    with col2:
+                        if st.button("Remove", key=f"remove_{idx}"):
+                            st.session_state.wishlist.pop(idx)
+                            st.rerun()
+                
+                if st.button("Clear All", type="secondary"):
+                    st.session_state.wishlist = []
+                    st.success("Wishlist cleared!")
+                    st.rerun()
+            else:
+                st.info("Your wishlist is empty. Add cars from the prediction page!")
+
+    # ============================================
+    # PRICE ALERTS PAGE
+    # ============================================
+    elif page == "🔔 Price Alerts":
+        st.subheader("🔔 Price Alerts")
+        
+        if not st.session_state.logged_in:
+            st.warning("⚠️ Please login to set price alerts!")
+        else:
+            st.markdown("### Set Price Alert")
+            
+            brands = sorted(df_clean['Brand'].unique())
+            alert_brand = st.selectbox("Brand", brands, key="alert_brand")
+            
+            filtered_models = sorted(df_clean[df_clean['Brand'] == alert_brand]['Model'].unique())
+            alert_model = st.selectbox("Model", filtered_models, key="alert_model")
+            
+            target_price = st.number_input("Target Price (₹)", min_value=100000, max_value=50000000, value=1000000, step=50000)
+            
+            if st.button("Set Alert", type="primary"):
+                st.session_state.price_alerts.append({
+                    'Car': f"{alert_brand} {alert_model}",
+                    'Target': target_price,
+                    'Date': datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success("Alert set! You'll be notified when price drops.")
+            
+            st.markdown("---")
+            st.subheader("📋 Active Alerts")
+            
+            if st.session_state.price_alerts:
+                for idx, alert in enumerate(st.session_state.price_alerts):
+                    col1, col2, col3 = st.columns([3, 2, 1])
+                    with col1:
+                        st.write(f"🚗 {alert['Car']}")
+                    with col2:
+                        st.write(f"Target: ₹{alert['Target']:,.0f}")
+                    with col3:
+                        if st.button("Delete", key=f"del_alert_{idx}"):
+                            st.session_state.price_alerts.pop(idx)
+                            st.rerun()
+            else:
+                st.info("No active alerts")
+
+    # ============================================
+    # MARKET INSIGHTS PAGE
+    # ============================================
+    elif page == "📈 Market Insights":
+        st.subheader("📈 Market Insights & Analytics")
+        
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 Price Distribution", "⛽ Fuel Analysis", "🏙️ City-wise", "📅 Year Trends"])
+        
+        with tab1:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.histplot(df_clean['Market_Price(INR)'], kde=True, bins=50, ax=ax, color='skyblue')
+                ax.set_title('Price Distribution')
+                ax.set_xlabel('Price (INR)')
+                st.pyplot(fig)
+            
+            with col2:
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.boxplot(y=df_clean['Market_Price(INR)'], ax=ax, color='lightgreen')
+                ax.set_title('Price Range Analysis')
+                st.pyplot(fig)
+        
+        with tab2:
+            if 'Fuel_Type' in df_clean.columns:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    sns.boxplot(data=df_clean, x='Fuel_Type', y='Market_Price(INR)', ax=ax, palette='Set3')
+                    ax.set_title('Price by Fuel Type')
+                    plt.xticks(rotation=45)
+                    st.pyplot(fig)
+                
+                with col2:
+                    fuel_counts = df_clean['Fuel_Type'].value_counts()
+                    fig, ax = plt.subplots(figsize=(6, 6))
+                    ax.pie(fuel_counts.values, labels=fuel_counts.index, autopct='%1.1f%%', startangle=90)
+                    ax.set_title('Fuel Type Distribution')
+                    st.pyplot(fig)
+        
+        with tab3:
+            if 'Registration_City' in df_clean.columns:
+                city_avg = df_clean.groupby('Registration_City')['Market_Price(INR)'].mean().sort_values(ascending=False).head(10)
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(x=city_avg.values, y=city_avg.index, palette='rocket', ax=ax)
+                ax.set_xlabel('Average Price (INR)')
+                ax.set_title('Average Price by City (Top 10)')
+                st.pyplot(fig)
+        
+        with tab4:
+            year_avg = df_clean.groupby('Year')['Market_Price(INR)'].mean().sort_index()
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(year_avg.index, year_avg.values, marker='o', linewidth=2, markersize=8, color='#4A90E2')
+            ax.set_xlabel('Year')
+            ax.set_ylabel('Average Price (INR)')
+            ax.set_title('Average Price Trend by Year')
+            ax.grid(True, alpha=0.3)
+            st.pyplot(fig)
+
+    # ============================================
+    # DOWNLOAD REPORT PAGE
+    # ============================================
+    elif page == "📥 Download Report":
+        st.subheader("📥 Download Reports & Data")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 📊 Available Reports")
+            
+            csv_full = df_clean.to_csv(index=False).encode('utf-8')
+            st.download_button("📄 Download Full Dataset", csv_full, "full_dataset.csv", "text/csv", key='dl1')
+            
+            csv_model = result_df.to_csv().encode('utf-8')
+            st.download_button("🤖 Model Performance", csv_model, "model_performance.csv", "text/csv", key='dl2')
+            
+            summary_stats = df_clean['Market_Price(INR)'].describe().to_frame()
+            csv_summary = summary_stats.to_csv().encode('utf-8')
+            st.download_button("📈 Price Summary", csv_summary, "price_summary.csv", "text/csv", key='dl3')
+        
+        with col2:
+            st.markdown("### 📋 Your Activity")
+            
+            if st.session_state.predictions:
+                pred_df = pd.DataFrame(st.session_state.predictions)
+                st.dataframe(pred_df, use_container_width=True, hide_index=True)
+                
+                csv_pred = pred_df.to_csv(index=False).encode('utf-8')
+                st.download_button("💾 Download Predictions", csv_pred, "my_predictions.csv", "text/csv", key='dl4')
+            else:
+                st.info("No predictions yet!")
+
+else:
+    st.info("📥 Please upload your dataset to start!")
+    
+    st.markdown("---")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        **💰 Price Prediction**
+        - AI models
+        - Real images
+        - Instant results
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🧮 Calculators**
+        - EMI Calculator
+        - Fuel Cost
+        - Depreciation
+        """)
+    
+    with col3:
+        st.markdown("""
+        **🤖 AI Features**
+        - Chatbot
+        - Recommendations
+        - Smart search
+        """)
+    
+    with col4:
+        st.markdown("""
+        **⭐ Social**
+        - Reviews
+        - Wishlist
+        - Price alerts
+        """)
