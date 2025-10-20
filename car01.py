@@ -54,10 +54,62 @@ except Exception as e:
     st.error(f"❌ Error loading file: {e}")
     st.stop()
 
-# Check required columns
-if 'Market_Price(INR)' not in df.columns:
-    st.error("❌ Column 'Market_Price(INR)' is required!")
+# Show uploaded columns
+with st.expander("📋 View Uploaded Columns"):
+    st.write("**Columns in your file:**")
+    for i, col in enumerate(df.columns, 1):
+        st.write(f"{i}. {col}")
+
+# Find price column (auto-detect)
+price_col = None
+possible_names = ['Market_Price(INR)', 'Market_Price', 'Price', 'price', 'PRICE', 
+                  'Market Price', 'market_price', 'Price(INR)', 'Selling_Price',
+                  'selling_price', 'Car_Price', 'car_price']
+
+for col in df.columns:
+    if col in possible_names or 'price' in col.lower():
+        price_col = col
+        break
+
+if price_col is None:
+    st.error("❌ Price column not found!")
+    st.info("💡 Please ensure your CSV has a column with 'Price' in its name")
+    st.write("**Available columns:**", list(df.columns))
+    st.markdown("---")
+    st.markdown("### Sample CSV Format:")
+    st.code("""Brand,Model,Year,Price,Fuel_Type
+Maruti,Swift,2020,550000,Petrol
+Honda,City,2019,900000,Petrol""")
     st.stop()
+
+# Rename to standard name
+if price_col != 'Market_Price(INR)':
+    df = df.rename(columns={price_col: 'Market_Price(INR)'})
+    st.info(f"✅ Using '{price_col}' as price column")
+
+# Find Brand column
+brand_col = None
+for col in df.columns:
+    if 'brand' in col.lower():
+        brand_col = col
+        break
+
+if brand_col and brand_col != 'Brand':
+    df = df.rename(columns={brand_col: 'Brand'})
+
+# Find Model column
+model_col = None
+for col in df.columns:
+    if 'model' in col.lower():
+        model_col = col
+        break
+
+if model_col and model_col != 'Model':
+    df = df.rename(columns={model_col: 'Model'})
+
+# Check essential columns
+if 'Brand' not in df.columns or 'Model' not in df.columns:
+    st.warning("⚠️ Brand or Model column not found. Some features may not work.")
 
 # Clean data
 df_clean = df.dropna()
