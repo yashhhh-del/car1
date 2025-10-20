@@ -1286,6 +1286,9 @@ elif page == "📉 Depreciation Analysis":
             plt.tight_layout()
             st.pyplot(fig)
             plt.close()
+
+# Footer with enhanced features
+st.markdown("---")
                          markers=True)
             fig.add_hline(y=50, line_dash="dash", line_color="red", 
                          annotation_text="50% Mark")
