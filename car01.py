@@ -705,4 +705,260 @@ elif page == "📈 Analytics Dashboard":
     # Predicted vs Actual
     st.markdown("### 🎯 Predicted vs Actual Prices")
     pred_actual_df = pd.DataFrame({
-        'Actual':
+        'Actual': model_data['y_test'],
+        'Predicted': model_data['y_pred']
+    })
+    
+    fig = px.scatter(pred_actual_df, x='Actual', y='Predicted',
+                    title='Model Prediction Accuracy',
+                    labels={'Actual': 'Actual Price (₹)', 'Predicted': 'Predicted Price (₹)'},
+                    trendline='ols')
+    
+    # Add perfect prediction line
+    max_val = max(pred_actual_df['Actual'].max(), pred_actual_df['Predicted'].max())
+    min_val = min(pred_actual_df['Actual'].min(), pred_actual_df['Predicted'].min())
+    fig.add_trace(go.Scatter(x=[min_val, max_val], y=[min_val, max_val],
+                            mode='lines', name='Perfect Prediction',
+                            line=dict(color='red', dash='dash')))
+    fig.update_layout(height=500)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Correlation Heatmap
+    if len(df_clean.select_dtypes(include=[np.number]).columns) > 2:
+        st.markdown("### 🔥 Feature Correlation Heatmap")
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        corr_matrix = df_clean[numeric_cols].corr()
+        
+        fig = px.imshow(corr_matrix,
+                       labels=dict(color="Correlation"),
+                       x=corr_matrix.columns,
+                       y=corr_matrix.columns,
+                       color_continuous_scale='RdBu_r',
+                       aspect='auto')
+        fig.update_layout(height=600)
+        st.plotly_chart(fig, use_container_width=True)
+
+elif page == "📉 Depreciation Analysis":
+    st.subheader("📉 Car Depreciation Analysis")
+    
+    if 'Year' not in df_clean.columns:
+        st.error("❌ Year column required for depreciation analysis!")
+        st.stop()
+    
+    st.markdown("### 🚗 Select Car for Depreciation Analysis")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        dep_brand = st.selectbox("Brand", sorted(df_clean['Brand'].unique()), key="dep_brand")
+    
+    with col2:
+        dep_models = df_clean[df_clean['Brand'] == dep_brand]['Model'].unique()
+        dep_model = st.selectbox("Model", sorted(dep_models), key="dep_model")
+    
+    # Get data for selected car
+    dep_data = df_clean[(df_clean['Brand'] == dep_brand) & (df_clean['Model'] == dep_model)].copy()
+    
+    if len(dep_data) == 0:
+        st.warning("No data available for depreciation analysis")
+        st.stop()
+    
+    # Calculate depreciation
+    current_year = datetime.now().year
+    dep_data['Car_Age'] = current_year - dep_data['Year']
+    dep_data = dep_data[dep_data['Car_Age'] >= 0].sort_values('Car_Age')
+    
+    if len(dep_data) < 2:
+        st.warning("Insufficient data for depreciation trend analysis")
+        st.stop()
+    
+    # Group by age and calculate average price
+    age_price = dep_data.groupby('Car_Age')['Market_Price(INR)'].agg(['mean', 'count']).reset_index()
+    age_price = age_price[age_price['count'] >= 1]  # At least 1 car per age
+    
+    st.markdown("---")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    if len(age_price) > 0:
+        newest_price = age_price[age_price['Car_Age'] == age_price['Car_Age'].min()]['mean'].values[0]
+        oldest_price = age_price[age_price['Car_Age'] == age_price['Car_Age'].max()]['mean'].values[0]
+        total_depreciation = ((newest_price - oldest_price) / newest_price * 100) if newest_price > 0 else 0
+        
+        col1.metric("New Car Price (Est)", f"₹{newest_price:,.0f}")
+        col2.metric("Current Avg Price", f"₹{dep_data['Market_Price(INR)'].mean():,.0f}")
+        col3.metric("Total Depreciation", f"{total_depreciation:.1f}%", delta_color="inverse")
+        col4.metric("Avg Age", f"{dep_data['Car_Age'].mean():.1f} years")
+    
+    st.markdown("---")
+    
+    # Depreciation curve
+    st.markdown("### 📉 Depreciation Trend Over Time")
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=age_price['Car_Age'],
+        y=age_price['mean'],
+        mode='lines+markers',
+        name='Average Price',
+        line=dict(color='#4ecdc4', width=3),
+        marker=dict(size=10)
+    ))
+    
+    fig.update_layout(
+        title=f'{dep_brand} {dep_model} - Price vs Age',
+        xaxis_title='Car Age (years)',
+        yaxis_title='Average Price (₹)',
+        height=500,
+        hovermode='x unified'
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Yearly depreciation rate
+    st.markdown("### 📊 Year-over-Year Depreciation Rate")
+    
+    if len(age_price) > 1:
+        age_price['Depreciation_Rate'] = age_price['mean'].pct_change() * -100
+        age_price_filtered = age_price[age_price['Car_Age'] > 0].copy()
+        
+        if len(age_price_filtered) > 0:
+            fig = px.bar(age_price_filtered, x='Car_Age', y='Depreciation_Rate',
+                        title='Depreciation Rate by Year',
+                        labels={'Car_Age': 'Car Age (years)', 'Depreciation_Rate': 'Depreciation Rate (%)'},
+                        color='Depreciation_Rate',
+                        color_continuous_scale='Reds')
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Future value calculator
+    st.markdown("### 🔮 Future Value Estimator")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        current_car_year = st.number_input("Your Car's Year", 
+                                          int(dep_data['Year'].min()), 
+                                          current_year, 
+                                          current_year - 2)
+        years_to_predict = st.slider("Years into Future", 1, 10, 3)
+    
+    with col2:
+        car_age_now = current_year - current_car_year
+        future_age = car_age_now + years_to_predict
+        
+        # Simple depreciation model (exponential decay)
+        if len(age_price) > 1:
+            avg_annual_depreciation = age_price['Depreciation_Rate'].mean() / 100
+            current_estimated_price = newest_price * ((1 - avg_annual_depreciation) ** car_age_now)
+            future_price = current_estimated_price * ((1 - avg_annual_depreciation) ** years_to_predict)
+            
+            st.metric("Current Estimated Value", f"₹{current_estimated_price:,.0f}")
+            st.metric(f"Value after {years_to_predict} years", f"₹{future_price:,.0f}",
+                     delta=f"-₹{current_estimated_price - future_price:,.0f}")
+            
+            # ROI Analysis
+            value_loss = current_estimated_price - future_price
+            annual_loss = value_loss / years_to_predict
+            st.metric("Estimated Annual Loss", f"₹{annual_loss:,.0f}")
+    
+    st.markdown("---")
+    
+    # Best time to sell analysis
+    st.markdown("### ⏰ Best Time to Sell")
+    
+    if len(age_price) > 2:
+        # Find age with best value retention
+        age_price['Value_Retention'] = (age_price['mean'] / newest_price * 100) if newest_price > 0 else 0
+        age_price['Value_Per_Year'] = age_price['mean'] / (age_price['Car_Age'] + 1)
+        
+        best_age_idx = age_price['Value_Per_Year'].idxmax()
+        best_age = age_price.loc[best_age_idx, 'Car_Age']
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.info(f"""
+            **💡 Recommendation:**
+            
+            Based on historical data, the optimal time to sell a {dep_brand} {dep_model} 
+            is around **{int(best_age)} years** of age, where you get the best value 
+            retention per year of ownership.
+            
+            - Value retention: **{age_price.loc[best_age_idx, 'Value_Retention']:.1f}%**
+            - Average price at {int(best_age)} years: **₹{age_price.loc[best_age_idx, 'mean']:,.0f}**
+            """)
+        
+        with col2:
+            # Value retention chart
+            fig = px.line(age_price, x='Car_Age', y='Value_Retention',
+                         title='Value Retention Over Time',
+                         labels={'Car_Age': 'Car Age (years)', 'Value_Retention': 'Value Retention (%)'},
+                         markers=True)
+            fig.add_hline(y=50, line_dash="dash", line_color="red", 
+                         annotation_text="50% Mark")
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, use_container_width=True)
+
+# Footer with enhanced features
+st.markdown("---")
+
+# Prediction History
+if len(st.session_state.predictions) > 0:
+    with st.expander("📜 Prediction History"):
+        pred_df = pd.DataFrame(st.session_state.predictions)
+        st.dataframe(pred_df, use_container_width=True, hide_index=True)
+        
+        # Export predictions
+        if st.button("📥 Download Predictions"):
+            csv = pred_df.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"predictions_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv"
+            )
+
+# Export full dataset
+with st.expander("📊 Export Dataset"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📥 Download Full Dataset"):
+            csv = df_clean.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"car_data_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv"
+            )
+    
+    with col2:
+        if st.button("📥 Download Model Metrics"):
+            metrics_export = pd.DataFrame({
+                'Metric': ['R² Score', 'MAE', 'RMSE', 'MAPE', 'CV Mean Score', 'CV Std'],
+                'Value': [
+                    model_data['r2'],
+                    model_data['mae'],
+                    model_data['rmse'],
+                    model_data['mape'],
+                    model_data['cv_scores'].mean(),
+                    model_data['cv_scores'].std()
+                ]
+            })
+            csv = metrics_export.to_csv(index=False)
+            st.download_button(
+                label="Download Metrics",
+                data=csv,
+                file_name=f"model_metrics_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv"
+            )
+
+st.markdown("---")
+st.markdown("Made with ❤️ | Enhanced Smart Car Pricing System | Powered by Advanced ML")
