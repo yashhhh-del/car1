@@ -284,9 +284,8 @@ elif page == "💰 Price Prediction":
         st.markdown("---")
         with st.spinner('🔍 Analyzing original car price...'):
             try:
-                from datetime import datetime
                 current_year = datetime.now().year
-                car_year = inputs.get('Year', current_year)
+                car_year = int(inputs.get('Year', current_year))
                 car_age = current_year - car_year
                 
                 # Estimate original price using reverse depreciation
@@ -301,6 +300,9 @@ elif page == "💰 Price Prediction":
                 
             except Exception as e:
                 st.warning("⚠️ Using default estimation")
+                current_year = datetime.now().year
+                car_year = current_year
+                car_age = 0
                 estimated_original = base_price * 1.5
         
         # Apply condition adjustments
