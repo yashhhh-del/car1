@@ -412,32 +412,55 @@ elif page == "💰 Price Prediction":
     if st.button("🔍 Calculate Accurate Price from CSV Data", type="primary", use_container_width=True):
         st.markdown("---")
         
-        # Find exact matches or closest matches in CSV
+        # STEP 1: Find exact/similar matches in CSV
         query_df = selected_car_data.copy()
         
-        # Filter based on inputs
+        st.info(f"🔍 Searching in {len(query_df)} {brand} {model_name} cars from your CSV...")
+        
+        # Smart filtering based on inputs
+        matches_found = []
+        
         for col, val in inputs.items():
             if col in query_df.columns and col not in ['Brand', 'Model']:
                 if query_df[col].dtype in ['int64', 'float64']:
-                    # For numeric: find closest values (±10%)
-                    tolerance = val * 0.1
+                    # For numeric: use 20% tolerance (more flexible)
+                    tolerance = val * 0.2
+                    before_filter = len(query_df)
                     query_df = query_df[
                         (query_df[col] >= val - tolerance) & 
                         (query_df[col] <= val + tolerance)
                     ]
+                    after_filter = len(query_df)
+                    if after_filter < before_filter:
+                        matches_found.append(f"{col}: {val} (±20%) → {after_filter} cars")
                 else:
                     # For categorical: exact match
+                    before_filter = len(query_df)
                     query_df = query_df[query_df[col] == val]
+                    after_filter = len(query_df)
+                    if after_filter < before_filter:
+                        matches_found.append(f"{col}: {val} → {after_filter} cars")
         
-        # If we have exact/close matches
-        if len(query_df) > 0:
-            base_price = query_df['Market_Price(INR)'].mean()
+        # Show filtering progress
+        with st.expander("🔍 Search Process Details"):
+            st.write("**Filtering Applied:**")
+            for match in matches_found:
+                st.write(f"• {match}")
+            st.write(f"\n**Final Result: {len(query_df)} matching cars found**")
+        
+        # STEP 2: Calculate base price
+        if len(query_df) >= 3:
+            # Good matches found - use CSV directly
+            base_price = query_df['Market_Price(INR)'].median()  # Use median for better accuracy
             similar_count = len(query_df)
-            st.success(f"✅ Found {similar_count} similar car(s) in your CSV!")
-        else:
-            # Use model prediction as fallback
-            st.warning("⚠️ No exact match found. Using ML prediction with CSV data...")
+            price_std = query_df['Market_Price(INR)'].std()
+            st.success(f"✅ Found {similar_count} similar cars in your CSV! Using their prices.")
             
+        elif len(query_df) >= 1:
+            # Few matches - use average with model
+            csv_price = query_df['Market_Price(INR)'].mean()
+            
+            # Also get ML prediction
             input_data = inputs.copy()
             current_year = datetime.now().year
             
@@ -468,42 +491,108 @@ elif page == "💰 Price Prediction":
             
             input_df = input_df[features]
             input_scaled = scaler.transform(input_df)
-            base_price = model.predict(input_scaled)[0]
-            similar_count = 0
+            ml_price = model.predict(input_scaled)[0]
+            
+            # Blend CSV and ML (70% CSV, 30% ML)
+            base_price = 0.7 * csv_price + 0.3 * ml_price
+            similar_count = len(query_df)
+            price_std = 0
+            st.warning(f"⚠️ Found only {similar_count} similar car(s). Using CSV data (70%) + ML prediction (30%).")
+            
+        else:
+            # No close matches - relax filters and use broader search
+            st.warning("⚠️ No close matches with your exact specs. Broadening search...")
+            
+            # Use all cars of same brand/model
+            query_df = selected_car_data.copy()
+            
+            # Try to filter by at least Year if available
+            if 'Year' in inputs and 'Year' in query_df.columns:
+                year_val = inputs['Year']
+                # ±3 years tolerance
+                query_df = query_df[
+                    (query_df['Year'] >= year_val - 3) & 
+                    (query_df['Year'] <= year_val + 3)
+                ]
+            
+            if len(query_df) > 0:
+                base_price = query_df['Market_Price(INR)'].median()
+                similar_count = len(query_df)
+                price_std = query_df['Market_Price(INR)'].std()
+                st.info(f"📊 Using {similar_count} cars from broader search (±3 years)")
+            else:
+                # Last resort - use all cars of this model
+                query_df = selected_car_data.copy()
+                base_price = query_df['Market_Price(INR)'].median()
+                similar_count = len(query_df)
+                price_std = query_df['Market_Price(INR)'].std()
+                st.info(f"📊 Using all {similar_count} {brand} {model_name} from your CSV")
         
-        # Apply condition adjustments
+        # STEP 3: Apply condition adjustments
         condition_mult = {"Poor": 0.85, "Fair": 0.93, "Good": 1.0, "Excellent": 1.08}
         accident_mult = {"No Accidents": 1.0, "Minor": 0.95, "Major": 0.85}
         owner_reduction = (owners - 1) * 0.03
         
         adjusted_price = base_price * condition_mult[condition] * accident_mult[accident] * (1 - owner_reduction)
         
-        lower_bound = adjusted_price * 0.95
-        upper_bound = adjusted_price * 1.05
+        # Calculate confidence interval based on matches found
+        if similar_count >= 5:
+            confidence = 0.95  # High confidence
+            lower_bound = adjusted_price * 0.97
+            upper_bound = adjusted_price * 1.03
+        elif similar_count >= 2:
+            confidence = 0.85  # Medium confidence
+            lower_bound = adjusted_price * 0.93
+            upper_bound = adjusted_price * 1.07
+        else:
+            confidence = 0.75  # Lower confidence
+            lower_bound = adjusted_price * 0.90
+            upper_bound = adjusted_price * 1.10
         
-        # Display Results
+        # STEP 4: Display Results
         st.markdown("### 💰 Price Analysis from Your CSV")
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("CSV Base Price", f"₹{base_price:,.0f}", 
-                     help="Average of similar cars in your data")
+            st.metric("Similar Cars Found", f"{similar_count}", 
+                     help="Number of matching cars in your CSV")
         
         with col2:
-            adjustment = adjusted_price - base_price
-            st.metric("After Adjustments", f"₹{adjusted_price:,.0f}", 
-                     delta=f"{adjustment:+,.0f}",
-                     help="Adjusted for condition, accident, owners")
+            st.metric("CSV Base Price", f"₹{base_price:,.0f}", 
+                     help="Median price of similar cars")
         
         with col3:
-            st.metric("Price Range", f"₹{lower_bound:,.0f} - ₹{upper_bound:,.0f}",
-                     help="Realistic selling range")
+            adjustment = adjusted_price - base_price
+            st.metric("Adjusted Price", f"₹{adjusted_price:,.0f}", 
+                     delta=f"{adjustment:+,.0f}",
+                     help="After condition/accident/owner adjustments")
         
         with col4:
-            percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
-            st.metric("Market Position", f"{percentile:.0f}th percentile",
-                     help="Your price vs all similar cars in CSV")
+            st.metric("Confidence", f"{confidence*100:.0f}%",
+                     help=f"Based on {similar_count} matches")
+        
+        st.markdown("---")
+        
+        # Price range display
+        st.markdown("### 🎯 Recommended Price Range")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Minimum", f"₹{lower_bound:,.0f}", 
+                     delta=f"-{((adjusted_price-lower_bound)/adjusted_price*100):.1f}%",
+                     help="Conservative estimate")
+        
+        with col2:
+            st.metric("**FAIR PRICE**", f"₹{adjusted_price:,.0f}", 
+                     delta="✓ Best Estimate",
+                     help="Most accurate prediction")
+        
+        with col3:
+            st.metric("Maximum", f"₹{upper_bound:,.0f}", 
+                     delta=f"+{((upper_bound-adjusted_price)/adjusted_price*100):.1f}%",
+                     help="Optimistic estimate")
         
         st.markdown("---")
         
