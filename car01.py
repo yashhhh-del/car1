@@ -1510,3 +1510,4 @@ if len(st.session_state.predictions) > 0:
         st.dataframe(pd.DataFrame(st.session_state.predictions), use_container_width=True)
 
 st.markdown("Made with ❤️ | Enhanced Smart Car Pricing System")
+
