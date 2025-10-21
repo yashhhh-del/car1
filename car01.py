@@ -412,6 +412,430 @@ elif page == "💰 Price Prediction":
     if st.button("🔍 Calculate Accurate Price from CSV Data", type="primary", use_container_width=True):
         st.markdown("---")
         
+        # Show similar cars from CSV in detail
+        st.markdown("### 🔍 Similar Cars from Your CSV Dataset")
+        
+        if len(query_df) > 0:
+            st.success(f"📋 Showing {min(len(query_df), 10)} most similar cars from your data")
+            
+            # Prepare display dataframe
+            display_cols = ['Brand', 'Model']
+            
+            # Add available columns
+            for col in ['Year', 'Mileage', 'Fuel_Type', 'Transmission', 'Owner_Type', 'Kilometers_Driven']:
+                if col in query_df.columns:
+                    display_cols.append(col)
+            
+            # Always show price
+            display_cols.append('Market_Price(INR)')
+            
+            # Add price difference column
+            query_df_display = query_df[display_cols].copy()
+            query_df_display['Price_Diff'] = query_df_display['Market_Price(INR)'] - adjusted_price
+            query_df_display['Diff_%'] = (query_df_display['Price_Diff'] / adjusted_price * 100).round(1)
+            
+            # Sort by price similarity
+            query_df_display['abs_diff'] = query_df_display['Price_Diff'].abs()
+            query_df_display = query_df_display.sort_values('abs_diff').head(10)
+            query_df_display = query_df_display.drop('abs_diff', axis=1)
+            
+            # Format display
+            format_dict = {'Market_Price(INR)': '₹{:,.0f}', 'Price_Diff': '₹{:+,.0f}', 'Diff_%': '{:+.1f}%'}
+            
+            if 'Mileage' in query_df_display.columns:
+                format_dict['Mileage'] = '{:,.0f} km'
+            if 'Kilometers_Driven' in query_df_display.columns:
+                format_dict['Kilometers_Driven'] = '{:,.0f} km'
+            
+            st.dataframe(
+                query_df_display.style.format(format_dict),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            st.caption("💡 **Price_Diff** shows difference from your car's price. Negative = cheaper, Positive = costlier")
+        else:
+            st.info("📋 Showing all available cars of this model from your CSV")
+            display_df = selected_car_data.head(10)
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        
+        # Feature-wise Analysis
+        st.markdown("### 🔬 Feature-wise Deep Dive")
+        
+        analysis_cols = st.columns(3)
+        col_idx = 0
+        
+        for col in inputs.keys():
+            if col not in ['Brand', 'Model'] and col in selected_car_data.columns:
+                with analysis_cols[col_idx % 3]:
+                    if selected_car_data[col].dtype in ['int64', 'float64']:
+                        # Numeric feature analysis
+                        your_val = inputs[col]
+                        min_val = selected_car_data[col].min()
+                        max_val = selected_car_data[col].max()
+                        avg_val = selected_car_data[col].mean()
+                        median_val = selected_car_data[col].median()
+                        
+                        st.markdown(f"#### {col}")
+                        
+                        # Create mini chart
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        ax.hist(selected_car_data[col], bins=20, color='skyblue', alpha=0.7, edgecolor='black')
+                        ax.axvline(x=your_val, color='red', linestyle='--', linewidth=2, label='Your Value')
+                        ax.axvline(x=avg_val, color='green', linestyle=':', linewidth=2, label='Average')
+                        ax.set_xlabel(col, fontsize=9)
+                        ax.set_ylabel('Count', fontsize=9)
+                        ax.legend(fontsize=7)
+                        ax.grid(True, alpha=0.3, axis='y')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close()
+                        
+                        # Stats
+                        st.caption(f"Your: **{your_val:,.0f}** | Avg: {avg_val:,.0f} | Range: {min_val:,.0f}-{max_val:,.0f}")
+                        
+                    else:
+                        # Categorical feature analysis
+                        your_val = inputs[col]
+                        value_counts = selected_car_data[col].value_counts()
+                        
+                        st.markdown(f"#### {col}")
+                        
+                        # Create pie chart
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        colors_pie = plt.cm.Set3(range(len(value_counts)))
+                        wedges, texts, autotexts = ax.pie(
+                            value_counts.head(5), 
+                            labels=value_counts.head(5).index,
+                            autopct='%1.0f%%',
+                            colors=colors_pie,
+                            textprops={'fontsize': 8}
+                        )
+                        
+                        # Highlight user's choice
+                        for i, label in enumerate(value_counts.head(5).index):
+                            if label == your_val:
+                                wedges[i].set_edgecolor('red')
+                                wedges[i].set_linewidth(3)
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close()
+                        
+                        popularity = (selected_car_data[col] == your_val).sum() / len(selected_car_data) * 100
+                        st.caption(f"Your: **{your_val}** | Popularity: {popularity:.0f}%")
+                    
+                    col_idx += 1
+        
+        st.markdown("---")
+        
+        # Final Recommendations
+        st.markdown("### 🎯 Pricing Recommendations")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("#### 💰 Quick Sale Price")
+            quick_price = lower_bound
+            st.metric("Price", f"₹{quick_price:,.0f}", delta=f"-{((adjusted_price-quick_price)/adjusted_price*100):.1f}%")
+            st.caption("Set this price for selling within 1-2 weeks")
+        
+        with col2:
+            st.markdown("#### ⚖️ Fair Market Price")
+            fair_price = adjusted_price
+            st.metric("Price", f"₹{fair_price:,.0f}", delta="✓ Recommended")
+            st.caption("Best price based on condition and market")
+        
+        with col3:
+            st.markdown("#### 💎 Premium Price")
+            premium_price = upper_bound
+            st.metric("Price", f"₹{premium_price:,.0f}", delta=f"+{((premium_price-adjusted_price)/adjusted_price*100):.1f}%")
+            st.caption("Try this if not in hurry (may take 1-2 months)")
+        
+        st.markdown("---")
+        
+        # Action buttons
+        st.markdown("### 📥 Download & Share")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📄 Generate PDF Report", use_container_width=True):
+                st.info("📄 PDF generation feature - Coming soon!")
+        
+        with col2:
+            # Generate summary text
+            summary_text = f"""
+CAR VALUATION SUMMARY
+{'='*50}
+
+Vehicle: {brand} {model_name}
+Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+YOUR CAR DETAILS:
+{chr(10).join([f'- {k}: {v}' for k, v in inputs.items() if k not in ['Brand', 'Model']])}
+
+CONDITION ASSESSMENT:
+- Overall Condition: {condition}
+- Accident History: {accident}
+- Number of Owners: {owners}
+
+PRICE ANALYSIS:
+- Similar Cars Found: {similar_count}
+- Base Price (CSV): ₹{base_price:,.0f}
+- Adjusted Price: ₹{adjusted_price:,.0f}
+- Price Range: ₹{lower_bound:,.0f} - ₹{upper_bound:,.0f}
+- Confidence: {confidence*100:.0f}%
+
+MARKET POSITION:
+- Market Percentile: {your_percentile:.0f}%
+- vs CSV Average: {((adjusted_price - avg_price) / avg_price * 100):+.1f}%
+
+RECOMMENDATIONS:
+- Quick Sale: ₹{quick_price:,.0f}
+- Fair Price: ₹{fair_price:,.0f}
+- Premium: ₹{premium_price:,.0f}
+
+{'='*50}
+Generated by Smart Car Pricing System
+"""
+            
+            st.download_button(
+                label="📋 Download Summary",
+                data=summary_text,
+                file_name=f"{brand}_{model_name}_valuation_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        
+        with col3:
+            if st.button("🔄 Analyze Another Car", use_container_width=True):
+                st.rerun()
+        
+        # Detailed Analysis Section
+        st.markdown("### 🔬 Deep Analysis of Your Car")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📊 Your Car's Specifications")
+            
+            specs_data = []
+            for col, val in inputs.items():
+                if col not in ['Brand', 'Model']:
+                    # Find where this value stands in the dataset
+                    if col in selected_car_data.columns:
+                        if selected_car_data[col].dtype in ['int64', 'float64']:
+                            min_val = selected_car_data[col].min()
+                            max_val = selected_car_data[col].max()
+                            avg_val = selected_car_data[col].mean()
+                            
+                            # Calculate percentile
+                            percentile = (selected_car_data[col] <= val).sum() / len(selected_car_data) * 100
+                            
+                            # Determine rating
+                            if percentile <= 25:
+                                rating = "⭐ Below Average"
+                            elif percentile <= 50:
+                                rating = "⭐⭐ Average"
+                            elif percentile <= 75:
+                                rating = "⭐⭐⭐ Above Average"
+                            else:
+                                rating = "⭐⭐⭐⭐ Excellent"
+                            
+                            specs_data.append({
+                                'Feature': col,
+                                'Your Value': f"{val:,.0f}" if val > 100 else f"{val:.1f}",
+                                'Market Avg': f"{avg_val:,.0f}" if avg_val > 100 else f"{avg_val:.1f}",
+                                'Percentile': f"{percentile:.0f}%",
+                                'Rating': rating
+                            })
+                        else:
+                            # Categorical value
+                            value_count = (selected_car_data[col] == val).sum()
+                            total = len(selected_car_data)
+                            popularity = (value_count / total) * 100
+                            
+                            specs_data.append({
+                                'Feature': col,
+                                'Your Value': str(val),
+                                'Market Avg': f"{popularity:.0f}% have this",
+                                'Percentile': '-',
+                                'Rating': '✓ Common' if popularity > 30 else '◆ Rare'
+                            })
+            
+            if len(specs_data) > 0:
+                specs_df = pd.DataFrame(specs_data)
+                st.dataframe(specs_df, use_container_width=True, hide_index=True)
+        
+        with col2:
+            st.markdown("#### 💡 Key Insights")
+            
+            insights = []
+            
+            # Year/Age Analysis
+            if 'Year' in inputs:
+                car_year = inputs['Year']
+                current_year = datetime.now().year
+                car_age = current_year - car_year
+                avg_year = selected_car_data['Year'].mean() if 'Year' in selected_car_data.columns else car_year
+                avg_age = current_year - avg_year
+                
+                if car_age < avg_age:
+                    insights.append(f"✅ **Newer than average** ({car_age} vs {avg_age:.0f} years) - Adds ₹{(adjusted_price * 0.05):,.0f} value")
+                elif car_age > avg_age:
+                    insights.append(f"⚠️ **Older than average** ({car_age} vs {avg_age:.0f} years) - Reduces ₹{(adjusted_price * 0.05):,.0f} value")
+                else:
+                    insights.append(f"✓ **Average age** ({car_age} years)")
+            
+            # Mileage Analysis
+            if 'Mileage' in inputs:
+                your_mileage = inputs['Mileage']
+                avg_mileage = selected_car_data['Mileage'].mean() if 'Mileage' in selected_car_data.columns else your_mileage
+                
+                if your_mileage < avg_mileage * 0.7:
+                    insights.append(f"✅ **Low mileage** ({your_mileage:,.0f} vs {avg_mileage:,.0f} km avg) - Premium value!")
+                elif your_mileage > avg_mileage * 1.3:
+                    insights.append(f"⚠️ **High mileage** ({your_mileage:,.0f} vs {avg_mileage:,.0f} km avg) - Consider price reduction")
+                else:
+                    insights.append(f"✓ **Normal mileage** ({your_mileage:,.0f} km)")
+            
+            # Condition Impact
+            if condition == "Excellent":
+                insights.append(f"✅ **Excellent condition** - Premium of ₹{(base_price * 0.08):,.0f}")
+            elif condition == "Poor":
+                insights.append(f"⚠️ **Poor condition** - Discount of ₹{(base_price * 0.15):,.0f}")
+            
+            # Accident Impact
+            if accident == "No Accidents":
+                insights.append(f"✅ **Clean history** - No deduction")
+            elif accident == "Major":
+                insights.append(f"❌ **Major accident** - Reduces value by ₹{(base_price * 0.15):,.0f}")
+            
+            # Ownership Impact
+            if owners == 1:
+                insights.append(f"✅ **First owner** - Premium value!")
+            elif owners >= 3:
+                insights.append(f"⚠️ **Multiple owners** ({owners}) - Reduces ₹{(base_price * 0.03 * (owners-1)):,.0f}")
+            
+            # Display insights
+            for insight in insights:
+                st.markdown(insight)
+            
+            st.markdown("---")
+            
+            # Overall Rating
+            score = 50  # Base score
+            
+            if 'Year' in inputs and car_age < avg_age:
+                score += 10
+            if 'Mileage' in inputs and your_mileage < avg_mileage * 0.7:
+                score += 15
+            if condition == "Excellent":
+                score += 15
+            elif condition == "Good":
+                score += 10
+            if accident == "No Accidents":
+                score += 10
+            if owners == 1:
+                score += 10
+            
+            if score >= 85:
+                st.success(f"🏆 **Overall Score: {score}/100** - Excellent Car!")
+            elif score >= 70:
+                st.info(f"⭐ **Overall Score: {score}/100** - Good Car")
+            else:
+                st.warning(f"⚠️ **Overall Score: {score}/100** - Fair Car")
+        
+        st.markdown("---")
+        
+        # Comparison with Similar Cars
+        st.markdown("### 🚗 Your Car vs Similar Cars in CSV")
+        
+        if len(query_df) > 0:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### 📊 Price Comparison")
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                # Histogram of similar cars
+                ax.hist(query_df['Market_Price(INR)'], bins=15, 
+                       color='lightblue', alpha=0.7, edgecolor='black', label='Similar Cars')
+                
+                # Mark your adjusted price
+                ax.axvline(x=adjusted_price, color='red', linestyle='--', 
+                          linewidth=3, label=f'Your Car: ₹{adjusted_price:,.0f}')
+                
+                # Mark quartiles
+                q1 = query_df['Market_Price(INR)'].quantile(0.25)
+                q2 = query_df['Market_Price(INR)'].quantile(0.50)
+                q3 = query_df['Market_Price(INR)'].quantile(0.75)
+                
+                ax.axvline(x=q1, color='orange', linestyle=':', linewidth=2, alpha=0.5, label=f'25th %ile: ₹{q1:,.0f}')
+                ax.axvline(x=q2, color='green', linestyle=':', linewidth=2, alpha=0.5, label=f'Median: ₹{q2:,.0f}')
+                ax.axvline(x=q3, color='purple', linestyle=':', linewidth=2, alpha=0.5, label=f'75th %ile: ₹{q3:,.0f}')
+                
+                ax.set_xlabel('Price (₹)', fontsize=12)
+                ax.set_ylabel('Number of Cars', fontsize=12)
+                ax.set_title(f'Price Distribution - {similar_count} Similar Cars', fontsize=14, fontweight='bold')
+                ax.legend(loc='upper right', fontsize=9)
+                ax.ticklabel_format(style='plain', axis='x')
+                ax.grid(True, alpha=0.3, axis='y')
+                
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+            
+            with col2:
+                st.markdown("#### 📈 Statistical Comparison")
+                
+                comparison_stats = {
+                    'Metric': [
+                        'Your Price',
+                        'Minimum in CSV',
+                        '25th Percentile',
+                        'Median (50th)',
+                        '75th Percentile',
+                        'Maximum in CSV',
+                        'Average Price',
+                        'Std Deviation'
+                    ],
+                    'Value': [
+                        f"₹{adjusted_price:,.0f}",
+                        f"₹{query_df['Market_Price(INR)'].min():,.0f}",
+                        f"₹{q1:,.0f}",
+                        f"₹{q2:,.0f}",
+                        f"₹{q3:,.0f}",
+                        f"₹{query_df['Market_Price(INR)'].max():,.0f}",
+                        f"₹{query_df['Market_Price(INR)'].mean():,.0f}",
+                        f"₹{query_df['Market_Price(INR)'].std():,.0f}"
+                    ]
+                }
+                
+                comp_df = pd.DataFrame(comparison_stats)
+                st.dataframe(comp_df, use_container_width=True, hide_index=True)
+                
+                # Position analysis
+                your_percentile = (query_df['Market_Price(INR)'] < adjusted_price).sum() / len(query_df) * 100
+                
+                st.markdown("---")
+                st.markdown("**Your Market Position:**")
+                
+                if your_percentile < 25:
+                    st.info(f"📉 **{your_percentile:.0f}th percentile** - Priced in lower 25% (Quick sale likely)")
+                elif your_percentile < 50:
+                    st.success(f"💰 **{your_percentile:.0f}th percentile** - Competitive pricing (Good balance)")
+                elif your_percentile < 75:
+                    st.warning(f"📈 **{your_percentile:.0f}th percentile** - Above average (May take longer)")
+                else:
+                    st.error(f"🔝 **{your_percentile:.0f}th percentile** - Premium pricing (Consider reduction)")
+        
+        st.markdown("---")
+        
         # STEP 1: Find exact/similar matches in CSV
         query_df = selected_car_data.copy()
         
