@@ -114,49 +114,157 @@ if page == "🏠 Home":
 
 elif page == "💰 Price Prediction":
     st.subheader("💰 Get Accurate Car Price")
-    brand = st.selectbox("🚘 Brand", sorted(df_clean['Brand'].unique()))
+    
+    # Step 1: Select Brand
+    brand = st.selectbox("🚘 Select Brand", sorted(df_clean['Brand'].unique()))
     brand_data = df_clean[df_clean['Brand'] == brand]
-    model_name = st.selectbox("🔧 Model", sorted(brand_data['Model'].unique()))
+    
+    # Step 2: Select Model
+    model_name = st.selectbox("🔧 Select Model", sorted(brand_data['Model'].unique()))
     selected_car_data = brand_data[brand_data['Model'] == model_name]
     
     if len(selected_car_data) == 0:
         st.warning("No data found")
         st.stop()
     
-    avg_price = selected_car_data['Market_Price(INR)'].mean()
+    # Show CSV data for selected Brand + Model
+    st.markdown("---")
+    st.markdown(f"### 📋 Available {brand} {model_name} in Your CSV")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Cars", len(selected_car_data))
+    col2.metric("Avg Price", f"₹{selected_car_data['Market_Price(INR)'].mean():,.0f}")
+    col3.metric("Min Price", f"₹{selected_car_data['Market_Price(INR)'].min():,.0f}")
+    col4.metric("Max Price", f"₹{selected_car_data['Market_Price(INR)'].max():,.0f}")
+    
+    # Display all cars of this brand+model from CSV
+    st.markdown("#### 🚗 All Cars from Your CSV:")
+    display_cols = [col for col in selected_car_data.columns if col != 'Market_Price(INR)']
+    display_cols.append('Market_Price(INR)')
+    st.dataframe(
+        selected_car_data[display_cols].style.format({'Market_Price(INR)': '₹{:,.0f}'}),
+        use_container_width=True,
+        hide_index=True
+    )
     
     st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Cars Found", len(selected_car_data))
-    col2.metric("Avg Price", f"₹{avg_price:,.0f}")
-    col3.metric("Range", f"₹{selected_car_data['Market_Price(INR)'].min():,.0f}-₹{selected_car_data['Market_Price(INR)'].max():,.0f}")
+    st.markdown("### 🎯 Select a Specific Car OR Enter Custom Details")
     
-    st.markdown("---")
+    # Option to select existing car or enter custom
+    selection_mode = st.radio(
+        "Choose Mode:",
+        ["📋 Select from CSV", "✏️ Enter Custom Details"],
+        horizontal=True
+    )
+    
     available_cols = [col for col in selected_car_data.columns if col not in ['Market_Price(INR)', 'Brand', 'Model']]
-    
-    col1, col2, col3 = st.columns(3)
     inputs = {'Brand': brand, 'Model': model_name}
-    col_idx = 0
     
-    for col in available_cols:
-        with [col1, col2, col3][col_idx % 3]:
-            if selected_car_data[col].dtype in ['int64', 'float64']:
-                inputs[col] = st.number_input(f"{col}", float(selected_car_data[col].min()), float(selected_car_data[col].max()), float(selected_car_data[col].median()), key=f"inp_{col}")
-            else:
-                inputs[col] = st.selectbox(f"{col}", sorted(selected_car_data[col].unique()), key=f"inp_{col}")
-            col_idx += 1
+    if selection_mode == "📋 Select from CSV":
+        # User selects an existing car from dropdown
+        st.info("💡 Select a car from your CSV data. All details will auto-fill!")
+        
+        # Create a readable dropdown option
+        car_options = []
+        for idx, row in selected_car_data.iterrows():
+            option_text = f"{brand} {model_name}"
+            for col in available_cols[:3]:  # Show first 3 columns
+                if col in row:
+                    option_text += f" | {col}: {row[col]}"
+            option_text += f" | Price: ₹{row['Market_Price(INR)']:,.0f}"
+            car_options.append(option_text)
+        
+        selected_car_index = st.selectbox(
+            "🚗 Select Car from CSV:",
+            range(len(car_options)),
+            format_func=lambda x: car_options[x]
+        )
+        
+        # Get the selected car's data
+        selected_row = selected_car_data.iloc[selected_car_index]
+        
+        # Auto-fill all details
+        st.markdown("---")
+        st.success("✅ Car details auto-filled from CSV!")
+        
+        col1, col2, col3 = st.columns(3)
+        col_idx = 0
+        
+        for col in available_cols:
+            with [col1, col2, col3][col_idx % 3]:
+                if selected_car_data[col].dtype in ['int64', 'float64']:
+                    inputs[col] = st.number_input(
+                        f"{col}", 
+                        float(selected_car_data[col].min()), 
+                        float(selected_car_data[col].max()), 
+                        float(selected_row[col]),  # Auto-filled from CSV
+                        key=f"inp_{col}",
+                        help="Auto-filled from CSV"
+                    )
+                else:
+                    # Get all unique values for this column
+                    unique_vals = sorted(selected_car_data[col].unique())
+                    default_index = unique_vals.index(selected_row[col]) if selected_row[col] in unique_vals else 0
+                    inputs[col] = st.selectbox(
+                        f"{col}", 
+                        unique_vals, 
+                        index=default_index,  # Auto-filled from CSV
+                        key=f"inp_{col}",
+                        help="Auto-filled from CSV"
+                    )
+                col_idx += 1
+        
+        # Show the base price from CSV
+        csv_base_price = selected_row['Market_Price(INR)']
+        st.info(f"📊 **CSV Price for this car:** ₹{csv_base_price:,.0f}")
+    
+    else:  # Enter Custom Details
+        st.info("💡 Enter your car's details manually. We'll find similar cars from CSV!")
+        
+        col1, col2, col3 = st.columns(3)
+        col_idx = 0
+        
+        for col in available_cols:
+            with [col1, col2, col3][col_idx % 3]:
+                if selected_car_data[col].dtype in ['int64', 'float64']:
+                    # Show range from CSV
+                    min_val = float(selected_car_data[col].min())
+                    max_val = float(selected_car_data[col].max())
+                    median_val = float(selected_car_data[col].median())
+                    inputs[col] = st.number_input(
+                        f"{col} (Range: {min_val:.0f}-{max_val:.0f})", 
+                        min_val, 
+                        max_val, 
+                        median_val,
+                        key=f"inp_{col}",
+                        help=f"CSV range: {min_val:.0f} to {max_val:.0f}"
+                    )
+                else:
+                    # Show all options from CSV
+                    unique_vals = sorted(selected_car_data[col].unique())
+                    inputs[col] = st.selectbox(
+                        f"{col} (Options from CSV)", 
+                        unique_vals, 
+                        key=f"inp_{col}",
+                        help=f"{len(unique_vals)} options available in CSV"
+                    )
+                col_idx += 1
     
     st.markdown("---")
+    st.markdown("### 🔧 Condition Adjustments")
+    
     col1, col2, col3 = st.columns(3)
     with col1:
-        condition = st.select_slider("Condition", ["Poor", "Fair", "Good", "Excellent"], value="Good")
+        condition = st.select_slider("Overall Condition", ["Poor", "Fair", "Good", "Excellent"], value="Good")
     with col2:
-        accident = st.radio("Accident", ["No", "Minor", "Major"], index=0)
+        accident = st.radio("Accident History", ["No", "Minor", "Major"], index=0)
     with col3:
-        owners = st.number_input("Owners", 1, 5, 1)
+        owners = st.number_input("Number of Owners", 1, 5, 1)
     
-    if st.button("🔍 Calculate Price", type="primary", use_container_width=True):
+    if st.button("🔍 Calculate Final Price", type="primary", use_container_width=True):
+        # Find similar cars from CSV
         query_df = selected_car_data.copy()
+        
         for col, val in inputs.items():
             if col in query_df.columns and col not in ['Brand', 'Model']:
                 if query_df[col].dtype in ['int64', 'float64']:
@@ -171,6 +279,7 @@ elif page == "💰 Price Prediction":
             base_price = selected_car_data['Market_Price(INR)'].median()
             similar_count = len(selected_car_data)
         
+        # Apply condition adjustments
         condition_mult = {"Poor": 0.85, "Fair": 0.93, "Good": 1.0, "Excellent": 1.08}
         accident_mult = {"No": 1.0, "Minor": 0.95, "Major": 0.85}
         adjusted_price = base_price * condition_mult[condition] * accident_mult[accident] * (1 - (owners - 1) * 0.03)
@@ -178,33 +287,80 @@ elif page == "💰 Price Prediction":
         upper_bound = adjusted_price * 1.05
         
         st.markdown("---")
-        st.success("✅ Price Calculated!")
+        st.success("✅ Price Calculated from Your CSV Data!")
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Similar Cars", similar_count)
-        col2.metric("Base Price", f"₹{base_price:,.0f}")
-        col3.metric("**Fair Price**", f"₹{adjusted_price:,.0f}")
-        col4.metric("Range", f"±₹{(upper_bound-lower_bound)/2:,.0f}")
+        col1.metric("Similar Cars in CSV", similar_count)
+        col2.metric("CSV Base Price", f"₹{base_price:,.0f}")
+        col3.metric("**Adjusted Price**", f"₹{adjusted_price:,.0f}")
+        col4.metric("Confidence Range", f"±₹{(upper_bound-lower_bound)/2:,.0f}")
         
         st.markdown("---")
+        
+        # Show matching cars from CSV
         if len(query_df) > 0:
-            st.markdown("### 🚗 Similar Cars")
-            display_df = query_df[['Brand', 'Model'] + available_cols[:3] + ['Market_Price(INR)']].head(10)
-            st.dataframe(display_df.style.format({'Market_Price(INR)': '₹{:,.0f}'}), use_container_width=True)
+            st.markdown(f"### 🎯 {len(query_df)} Matching Cars from Your CSV")
+            display_df = query_df[display_cols].head(10)
+            st.dataframe(
+                display_df.style.format({'Market_Price(INR)': '₹{:,.0f}'}),
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No exact matches found. Showing all cars of this model:")
+            st.dataframe(
+                selected_car_data[display_cols].head(10).style.format({'Market_Price(INR)': '₹{:,.0f}'}),
+                use_container_width=True,
+                hide_index=True
+            )
         
         st.markdown("---")
-        fig, ax = plt.subplots(figsize=(10, 5))
-        bars = ax.bar(['Lower', 'Fair', 'Upper'], [lower_bound, adjusted_price, upper_bound], color=['#ff6b6b', '#4ecdc4', '#ffe66d'], alpha=0.8)
-        for bar, val in zip(bars, [lower_bound, adjusted_price, upper_bound]):
-            ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(), f'₹{val:,.0f}', ha='center', va='bottom', fontsize=11, fontweight='bold')
-        ax.set_ylabel('Price (₹)')
-        ax.ticklabel_format(style='plain', axis='y')
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close()
+        
+        # Price breakdown
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 💰 Price Breakdown")
+            st.write(f"**From Your CSV:**")
+            st.write(f"• Base Price: ₹{base_price:,.0f}")
+            st.write(f"• Similar Cars: {similar_count}")
+            st.write(f"")
+            st.write(f"**Adjustments:**")
+            st.write(f"• Condition ({condition}): {condition_mult[condition]:.2f}x")
+            st.write(f"• Accident ({accident}): {accident_mult[accident]:.2f}x")
+            st.write(f"• Owners ({owners}): {(1-(owners-1)*0.03):.2f}x")
+            st.write(f"")
+            st.write(f"**Final Price: ₹{adjusted_price:,.0f}**")
+        
+        with col2:
+            # Price chart
+            fig, ax = plt.subplots(figsize=(8, 6))
+            bars = ax.bar(['Lower\nBound', 'Fair\nPrice', 'Upper\nBound'], 
+                         [lower_bound, adjusted_price, upper_bound], 
+                         color=['#ff6b6b', '#4ecdc4', '#ffe66d'], 
+                         alpha=0.8, edgecolor='black', linewidth=2)
+            for bar, val in zip(bars, [lower_bound, adjusted_price, upper_bound]):
+                ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(), 
+                       f'₹{val:,.0f}', ha='center', va='bottom', fontsize=11, fontweight='bold')
+            ax.set_ylabel('Price (₹)', fontsize=12)
+            ax.set_title('Price Range', fontsize=14, fontweight='bold')
+            ax.ticklabel_format(style='plain', axis='y')
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close()
+        
         st.balloons()
         
-        st.session_state.predictions.append({'Brand': brand, 'Model': model_name, 'Condition': condition, 'Price': f"₹{adjusted_price:,.0f}", 'Time': datetime.now().strftime("%Y-%m-%d %H:%M")})
+        # Save prediction
+        st.session_state.predictions.append({
+            'Brand': brand,
+            'Model': model_name,
+            'Condition': condition,
+            'CSV Base': f"₹{base_price:,.0f}",
+            'Final Price': f"₹{adjusted_price:,.0f}",
+            'Similar Cars': similar_count,
+            'Time': datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
 
 elif page == "📊 Compare Cars":
     st.subheader("📊 Compare Cars")
