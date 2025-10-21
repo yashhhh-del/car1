@@ -263,43 +263,7 @@ elif page == "💰 Price Prediction":
     
     if st.button("🔍 Calculate Final Price", type="primary", use_container_width=True):
         
-        # Get real-time original price from Google
-        st.markdown("---")
-        with st.spinner('🔍 Fetching real-time original price from web...'):
-            try:
-                # Search for original car price
-                search_query = f"{brand} {model_name} {inputs.get('Year', '')} on road price India"
-                
-                # Use web_search to get current market price
-                from datetime import datetime
-                current_year = datetime.now().year
-                
-                # Construct search query for original price
-                original_price_query = f"{brand} {model_name} {inputs.get('Year', current_year)} original price new car India"
-                
-                st.info(f"🔍 Searching: {original_price_query}")
-                
-                # Note: In real deployment, this will actually search
-                # For now, we'll estimate based on depreciation
-                car_year = inputs.get('Year', current_year)
-                car_age = current_year - car_year
-                
-                # Estimate original price using reverse depreciation
-                # Average car depreciates 15% first year, then 10% per year
-                if car_age == 0:
-                    estimated_original = base_price
-                elif car_age == 1:
-                    estimated_original = base_price / 0.85
-                else:
-                    estimated_original = base_price / (0.85 * (0.90 ** (car_age - 1)))
-                
-                st.success(f"✅ Found original price information!")
-                
-            except Exception as e:
-                st.warning("⚠️ Could not fetch real-time price. Using estimate.")
-                estimated_original = base_price * 1.5
-        
-        # Find similar cars from CSV
+        # First, find similar cars from CSV to get base_price
         query_df = selected_car_data.copy()
         
         for col, val in inputs.items():
@@ -315,6 +279,29 @@ elif page == "💰 Price Prediction":
         else:
             base_price = selected_car_data['Market_Price(INR)'].median()
             similar_count = len(selected_car_data)
+        
+        # Now get real-time original price
+        st.markdown("---")
+        with st.spinner('🔍 Analyzing original car price...'):
+            try:
+                from datetime import datetime
+                current_year = datetime.now().year
+                car_year = inputs.get('Year', current_year)
+                car_age = current_year - car_year
+                
+                # Estimate original price using reverse depreciation
+                if car_age == 0:
+                    estimated_original = base_price
+                elif car_age == 1:
+                    estimated_original = base_price / 0.85
+                else:
+                    estimated_original = base_price / (0.85 * (0.90 ** (car_age - 1)))
+                
+                st.success(f"✅ Original price estimated based on {car_age} years depreciation!")
+                
+            except Exception as e:
+                st.warning("⚠️ Using default estimation")
+                estimated_original = base_price * 1.5
         
         # Apply condition adjustments
         condition_mult = {"Poor": 0.85, "Fair": 0.93, "Good": 1.0, "Excellent": 1.08}
