@@ -477,6 +477,224 @@ elif page == "💰 Price Prediction":
                     if selected_car_data[col].dtype in ['int64', 'float64']:
                         # Numeric feature analysis
                         your_val = inputs[col]
+                        
+                        st.markdown(f"#### {col}")
+                        
+                        # Create mini chart
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        ax.hist(selected_car_data[col], bins=20, color='skyblue', alpha=0.7, edgecolor='black')
+                        ax.axvline(x=your_val, color='red', linestyle='--', linewidth=2, label='Your Value')
+                        ax.axvline(x=selected_car_data[col].mean(), color='green', linestyle=':', linewidth=2, label='Average')
+                        ax.set_xlabel(col, fontsize=9)
+                        ax.set_ylabel('Count', fontsize=9)
+                        ax.legend(fontsize=7)
+                        ax.grid(True, alpha=0.3, axis='y')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close()
+                        
+                        # Stats
+                        st.caption(f"Your: **{your_val:,.0f}** | Avg: {selected_car_data[col].mean():,.0f}")
+                        
+                    else:
+                        # Categorical feature analysis
+                        your_val = inputs[col]
+                        value_counts = selected_car_data[col].value_counts()
+                        
+                        st.markdown(f"#### {col}")
+                        
+                        if len(value_counts) <= 5:
+                            # Create pie chart
+                            fig, ax = plt.subplots(figsize=(6, 3))
+                            colors_pie = plt.cm.Set3(range(len(value_counts)))
+                            wedges, texts, autotexts = ax.pie(
+                                value_counts, 
+                                labels=value_counts.index,
+                                autopct='%1.0f%%',
+                                colors=colors_pie,
+                                textprops={'fontsize': 8}
+                            )
+                            
+                            # Highlight user's choice
+                            for i, label in enumerate(value_counts.index):
+                                if label == your_val:
+                                    wedges[i].set_edgecolor('red')
+                                    wedges[i].set_linewidth(3)
+                            
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                            plt.close()
+                        
+                        popularity = (selected_car_data[col] == your_val).sum() / len(selected_car_data) * 100
+                        st.caption(f"Your: **{your_val}** | Popularity: {popularity:.0f}%")
+                    
+                    col_idx += 1
+        
+        st.markdown("---")
+        
+        # Final Recommendations
+        st.markdown("### 🎯 Pricing Recommendations")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("#### 💰 Quick Sale Price")
+            quick_price = lower_bound
+            st.metric("Price", f"₹{quick_price:,.0f}", delta=f"-{((adjusted_price-quick_price)/adjusted_price*100):.1f}%")
+            st.caption("Set this price for selling within 1-2 weeks")
+        
+        with col2:
+            st.markdown("#### ⚖️ Fair Market Price")
+            fair_price = adjusted_price
+            st.metric("Price", f"₹{fair_price:,.0f}", delta="✓ Recommended")
+            st.caption("Best price based on condition and market")
+        
+        with col3:
+            st.markdown("#### 💎 Premium Price")
+            premium_price = upper_bound
+            st.metric("Price", f"₹{premium_price:,.0f}", delta=f"+{((premium_price-adjusted_price)/adjusted_price*100):.1f}%")
+            st.caption("Try this if not in hurry (may take 1-2 months)")
+        
+        st.markdown("---")
+        
+        # Action buttons
+        st.markdown("### 📥 Download & Share")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📄 Generate PDF Report", use_container_width=True):
+                st.info("📄 PDF generation feature - Coming soon!")
+        
+        with col2:
+            # Generate summary text
+            summary_text = f"""
+CAR VALUATION SUMMARY
+{'='*50}
+
+Vehicle: {brand} {model_name}
+Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+YOUR CAR DETAILS:
+{chr(10).join([f'- {k}: {v}' for k, v in inputs.items() if k not in ['Brand', 'Model']])}
+
+CONDITION ASSESSMENT:
+- Overall Condition: {condition}
+- Accident History: {accident}
+- Number of Owners: {owners}
+
+PRICE ANALYSIS:
+- Similar Cars Found: {similar_count}
+- Base Price (CSV): ₹{base_price:,.0f}
+- Adjusted Price: ₹{adjusted_price:,.0f}
+- Price Range: ₹{lower_bound:,.0f} - ₹{upper_bound:,.0f}
+- Confidence: {confidence*100:.0f}%
+
+MARKET POSITION:
+- Market Percentile: {your_percentile:.0f}%
+- vs CSV Average: {((adjusted_price - avg_price) / avg_price * 100):+.1f}%
+
+RECOMMENDATIONS:
+- Quick Sale: ₹{quick_price:,.0f}
+- Fair Price: ₹{fair_price:,.0f}
+- Premium: ₹{premium_price:,.0f}
+
+{'='*50}
+Generated by Smart Car Pricing System
+"""
+            
+            st.download_button(
+                label="📋 Download Summary",
+                data=summary_text,
+                file_name=f"{brand}_{model_name}_valuation_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        
+        with col3:
+            if st.button("🔄 Analyze Another Car", use_container_width=True):
+                st.rerun()
+        
+        st.balloons()
+        
+        # Save prediction
+        st.session_state.predictions.append({
+            'Brand': brand,
+            'Model': model_name,
+            'Year': inputs.get('Year', 'N/A'),
+            'Condition': condition,
+            'Owners': owners,
+            'Accident': accident,
+            'Fair Price': f"₹{adjusted_price:,.0f}",
+            'Range': f"₹{lower_bound:,.0f} - ₹{upper_bound:,.0f}",
+            'vs Market': f"{((adjusted_price - avg_price) / avg_price * 100):+.1f}%",
+            'Time': datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+
+# ============================================
+# COMPARE CARS PAGE
+# ============================================
+            st.success(f"📋 Showing {min(len(query_df), 10)} most similar cars from your data")
+            
+            # Calculate percentile
+            your_percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
+            
+            # Prepare display dataframe
+            display_cols = ['Brand', 'Model']
+            
+            # Add available columns
+            for col in ['Year', 'Mileage', 'Fuel_Type', 'Transmission', 'Owner_Type', 'Kilometers_Driven']:
+                if col in query_df.columns:
+                    display_cols.append(col)
+            
+            # Always show price
+            display_cols.append('Market_Price(INR)')
+            
+            # Add price difference column
+            query_df_display = query_df[display_cols].copy()
+            query_df_display['Price_Diff'] = query_df_display['Market_Price(INR)'] - adjusted_price
+            query_df_display['Diff_%'] = (query_df_display['Price_Diff'] / adjusted_price * 100).round(1)
+            
+            # Sort by price similarity
+            query_df_display['abs_diff'] = query_df_display['Price_Diff'].abs()
+            query_df_display = query_df_display.sort_values('abs_diff').head(10)
+            query_df_display = query_df_display.drop('abs_diff', axis=1)
+            
+            # Format display
+            format_dict = {'Market_Price(INR)': '₹{:,.0f}', 'Price_Diff': '₹{:+,.0f}', 'Diff_%': '{:+.1f}%'}
+            
+            if 'Mileage' in query_df_display.columns:
+                format_dict['Mileage'] = '{:,.0f} km'
+            if 'Kilometers_Driven' in query_df_display.columns:
+                format_dict['Kilometers_Driven'] = '{:,.0f} km'
+            
+            st.dataframe(
+                query_df_display.style.format(format_dict),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            st.caption("💡 **Price_Diff** shows difference from your car's price. Negative = cheaper, Positive = costlier")
+        else:
+            st.info("📋 Showing all available cars of this model from your CSV")
+            display_df = selected_car_data.head(10)
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            your_percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
+        
+        st.markdown("---")
+        
+        # Feature-wise Analysis
+        st.markdown("### 🔬 Feature-wise Deep Dive")
+        
+        analysis_cols = st.columns(3)
+        col_idx = 0
+        
+        for col in inputs.keys():
+            if col not in ['Brand', 'Model'] and col in selected_car_data.columns:
+                with analysis_cols[col_idx % 3]:
+                    if selected_car_data[col].dtype in ['int64', 'float64']:
+                        # Numeric feature analysis
+                        your_val = inputs[col]
                         min_val = selected_car_data[col].min()
                         max_val = selected_car_data[col].max()
                         avg_val = selected_car_data[col].mean()
