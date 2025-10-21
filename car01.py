@@ -415,11 +415,11 @@ elif page == "💰 Price Prediction":
         # Show similar cars from CSV in detail
         st.markdown("### 🔍 Similar Cars from Your CSV Dataset")
         
-        # Calculate percentile for use throughout
-        your_percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
-        
         if len(query_df) > 0:
             st.success(f"📋 Showing {min(len(query_df), 10)} most similar cars from your data")
+            
+            # Calculate percentile
+            your_percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
             
             # Prepare display dataframe
             display_cols = ['Brand', 'Model']
@@ -461,6 +461,7 @@ elif page == "💰 Price Prediction":
             st.info("📋 Showing all available cars of this model from your CSV")
             display_df = selected_car_data.head(10)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
+            your_percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
         
         st.markdown("---")
         
