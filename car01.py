@@ -415,6 +415,9 @@ elif page == "💰 Price Prediction":
         # Show similar cars from CSV in detail
         st.markdown("### 🔍 Similar Cars from Your CSV Dataset")
         
+        # Calculate percentile for use throughout
+        your_percentile = (selected_car_data['Market_Price(INR)'] < adjusted_price).sum() / len(selected_car_data) * 100
+        
         if len(query_df) > 0:
             st.success(f"📋 Showing {min(len(query_df), 10)} most similar cars from your data")
             
