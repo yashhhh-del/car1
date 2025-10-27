@@ -6,3 +6,6 @@ seaborn
 scikit-learn
 openpyxl
 plotly
+opencv-python
+Pillow
+
