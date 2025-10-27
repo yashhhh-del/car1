@@ -244,7 +244,7 @@ elif page == "Price Prediction":
             source = ""
 
             if (st.session_state.model_ok and not df_clean.empty and
-                brand in df_clean['Brand'].values and model_name in df_clean[df_clean['Brand'] == brand подтверд]['Model'].values):
+                brand in df_clean['Brand'].values and model_name in df_clean[df_clean['Brand'] == brand ]['Model'].values):
                 try:
                     input_data = {'Brand': brand, 'Model': model_name, 'Year': year, 'Mileage': mileage,
                                   'Fuel_Type': fuel, 'Transmission': transmission}
@@ -326,3 +326,4 @@ if st.session_state.predictions:
         st.dataframe(hist_df, use_container_width=True)
 
 st.markdown("Made with Love | Tumhara App Ab Live Hai!")
+
