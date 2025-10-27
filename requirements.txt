@@ -1,10 +1,8 @@
 streamlit
 pandas
 numpy
+matplotlib
+seaborn
 scikit-learn
-plotly
-opencv-python-headless
-Pillow
-BeautifulSoup
-
-
+requests
+beautifulsoup4
