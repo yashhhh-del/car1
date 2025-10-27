@@ -1,11 +1,10 @@
 # --------------------------------------------------------------
-# car01.py – CarWale AI: All Cars + CSV Bulk Analysis + Damage Detection
+# car01.py – CarWale AI: All Cars + CSV Bulk + Damage Detection
 # --------------------------------------------------------------
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
 import random
@@ -34,8 +33,6 @@ st.markdown(
         transition:transform .3s;}
     .stButton>button:hover{transform:translateY(-2px);
         box-shadow:0 10px 25px rgba(102,126,234,.4);}
-    .car-card{background:white;padding:20px;border-radius:12px;
-        box-shadow:0 5px 20px rgba(0,0,0,.1);margin:10px 0;}
     .price-card{background:linear-gradient(135deg,rgba(102,126,234,.1) 0%,rgba(118,75,162,.1) 100%);
         padding:25px;border-radius:12px;text-align:center;border:3px solid #667eea;}
     .damage-card{background:linear-gradient(135deg,rgba(231,76,60,.1) 0%,rgba(52,152,219,.1) 100%);
@@ -52,7 +49,6 @@ st.markdown(
 # 2. FULL CAR DATABASE (30+ brands, 200+ models)
 # --------------------------------------------------------------
 CAR_DATABASE = {
-    # ── Mass Market ─────────────────────────────────────
     "Maruti Suzuki": {"models": ["Alto K10","S-Presso","Celerio","Wagon R","Swift","Dzire","Baleno","Ciaz","Ignis","Fronx","Grand Vitara","Invicto","Ertiga","XL6","Brezza","Jimny"],
                      "price_range": (350000,2800000),"category":"Mass Market","depreciation_rate":0.10,"demand_score":9.8,"reliability_score":9.2},
     "Tata": {"models": ["Tiago","Tigor","Altroz","Punch","Nexon","Curvv","Harrier","Safari","Nexon EV","Tiago EV"],
@@ -63,14 +59,10 @@ CAR_DATABASE = {
             "price_range": (750000,6500000),"category":"Mass Market","depreciation_rate":0.13,"demand_score":8.7,"reliability_score":8.3},
     "Renault": {"models": ["Kwid","Triber","Kiger"],
                 "price_range": (450000,1500000),"category":"Mass Market","depreciation_rate":0.15,"demand_score":7.2,"reliability_score":7.0},
-
-    # ── SUV ─────────────────────────────────────────────
     "Mahindra": {"models": ["Bolero","Thar","Scorpio","Scorpio-N","XUV300","XUV700","XUV400","Marazzo","Alturas G4","BE 07"],
                  "price_range": (900000,2700000),"category":"SUV","depreciation_rate":0.12,"demand_score":8.8,"reliability_score":8.2},
     "Nissan": {"models": ["Magnite","X-Trail","GT-R"],
                "price_range": (600000,22000000),"category":"SUV","depreciation_rate":0.16,"demand_score":7.0,"reliability_score":7.5},
-
-    # ── Premium ────────────────────────────────────────
     "Toyota": {"models": ["Glanza","Urban Cruiser","Fortuner","Innova Crysta","Camry","Vellfire","Hilux","Land Cruiser"],
                "price_range": (700000,22000000),"category":"Premium","depreciation_rate":0.10,"demand_score":9.5,"reliability_score":9.5},
     "Honda": {"models": ["Amaze","City","Elevate","CR-V","Civic","Accord"],
@@ -85,8 +77,6 @@ CAR_DATABASE = {
              "price_range": (900000,7500000),"category":"Premium","depreciation_rate":0.18,"demand_score":6.5,"reliability_score":7.5},
     "Jeep": {"models": ["Compass","Meridian","Wrangler","Grand Cherokee"],
              "price_range": (1800000,8000000),"category":"Premium SUV","depreciation_rate":0.15,"demand_score":7.5,"reliability_score":7.8},
-
-    # ── Luxury ─────────────────────────────────────────
     "BMW": {"models": ["1 Series","2 Series","3 Series","5 Series","7 Series","X1","X3","X5","X7","Z4","i4","iX","M3","M5"],
             "price_range": (4200000,25000000),"category":"Luxury","depreciation_rate":0.16,"demand_score":8.3,"reliability_score":8.5},
     "Mercedes-Benz": {"models": ["A-Class","C-Class","E-Class","S-Class","GLA","GLC","GLE","GLS","AMG GT","EQC","Maybach S-Class"],
@@ -97,8 +87,6 @@ CAR_DATABASE = {
                "price_range": (4700000,20000000),"category":"Luxury","depreciation_rate":0.18,"demand_score":7.2,"reliability_score":7.5},
     "Land Rover": {"models": ["Discovery","Discovery Sport","Range Rover Evoque","Range Rover Velar","Range Rover Sport","Range Rover","Defender"],
                    "price_range": (6000000,40000000),"category":"Luxury SUV","depreciation_rate":0.16,"demand_score":8.0,"reliability_score":7.8},
-
-    # ── Electric / Super Luxury ────────────────────────
     "Tesla": {"models": ["Model 3","Model Y","Model S","Model X","Cybertruck"],
               "price_range": (6000000,18000000),"category":"Electric Luxury","depreciation_rate":0.12,"demand_score":9.2,"reliability_score":8.0},
     "Porsche": {"models": ["718","911","Panamera","Cayenne","Macan","Taycan"],
@@ -240,7 +228,6 @@ def train_model():
         st.error(f"Model training error: {e}")
         return {"model":None,"encoders":{},"scaler":None,"features":[],"r2":0.0}
 
-# ---- Train on first load (safe) ----
 if not st.session_state.model_trained:
     with st.spinner("Training AI model…"):
         st.session_state.ml = train_model()
@@ -250,43 +237,94 @@ if not st.session_state.model_trained:
     else: st.warning("Using rule-based fallback.")
 
 # --------------------------------------------------------------
-# 7. BATCH PREDICTION (CSV)
+# 7. BATCH PREDICTION (auto column mapping)
 # --------------------------------------------------------------
 def predict_batch(df: pd.DataFrame) -> pd.DataFrame:
+    # --- 1. Auto-map columns ---
+    col_map = {
+        "Brand": ["brand","make","Brand","car_brand","company"],
+        "Model": ["model","Model","car_model","variant"],
+        "Year": ["year","Year","registration_year","mfg_year"],
+        "Mileage": ["mileage","Mileage","km_driven","kms","odometer"],
+        "Fuel_Type": ["fuel","fuel_type","Fuel_Type","fueltype"],
+        "Transmission": ["transmission","Transmission","gearbox","trans"],
+        "Owners": ["owners","owner","no_of_owners","owner_count","Owners"],
+        "Condition": ["condition","Condition","car_condition"],
+        "Accident_History": ["accident","Accident_History","accident_history","accidents"],
+        "City": ["city","City","location","place"],
+    }
+    reverse_map = {}
+    for exp, poss in col_map.items():
+        for p in poss:
+            if p in df.columns:
+                reverse_map[p] = exp
+                break
+    df = df.rename(columns=reverse_map)
+
+    # --- 2. Validate required ---
+    required = ["Brand","Model","Year"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        st.error(f"Missing: {', '.join(missing)}")
+        st.info("Use: Brand, Model, Year (case-insensitive)")
+        return pd.DataFrame()
+
+    # --- 3. Fill optional ---
+    defaults = {"Mileage":50000,"Fuel_Type":"Petrol","Transmission":"Manual",
+                "Owners":1,"Condition":"Good","Accident_History":"No","City":"Lucknow"}
+    for col, val in defaults.items():
+        if col not in df.columns:
+            df[col] = val
+
+    # --- 4. Predict ---
     if st.session_state.ml.get("model") is None:
-        # ---- Rule-based fallback ----
         def rule_price(row):
-            info = get_brand_info(row.get("Brand","Unknown"))
+            info = get_brand_info(row["Brand"])
             base = sum(info["price_range"])/2
-            age = datetime.now().year - row.get("Year",2020)
+            age = datetime.now().year - row["Year"]
             dep = max(0.3,(1-info["depreciation_rate"])**age)
-            return int(base*dep*CITY_MULTIPLIERS.get(row.get("City","Lucknow"),1.0))
+            return int(base*dep*CITY_MULTIPLIERS.get(row["City"],1.0))
         df["Predicted_Price"] = df.apply(rule_price,axis=1)
-        return df
+        return df[["Brand","Model","Year","Predicted_Price"]]
 
     prog = st.progress(0)
     results = []
-    for i,row in df.iterrows():
-        row_enc = row.copy()
-        for col,le in st.session_state.ml["encoders"].items():
+    encoders = st.session_state.ml["encoders"]
+    features = st.session_state.ml["features"]
+    scaler = st.session_state.ml["scaler"]
+    model = st.session_state.ml["model"]
+
+    for i, row in df.iterrows():
+        row_dict = row.to_dict()
+        row_enc = {}
+        for col, le in encoders.items():
+            val = row_dict.get(col,"Unknown")
             try:
-                row_enc[col+"_enc"] = le.transform([row.get(col,"Unknown")])[0]
+                row_enc[col+"_enc"] = le.transform([val])[0]
             except:
                 row_enc[col+"_enc"] = 0
-        X_row = pd.DataFrame([row_enc[st.session_state.ml["features"]]])
-        X_scaled = st.session_state.ml["scaler"].transform(X_row)
-        pred = st.session_state.ml["model"].predict(X_scaled)[0]
-        info = get_brand_info(row.get("Brand","Unknown"))
-        pred = int(pred * CITY_MULTIPLIERS.get(row.get("City","Lucknow"),1.0) *
+        row_enc["Year"] = row_dict.get("Year",2020)
+        row_enc["Mileage"] = row_dict.get("Mileage",50000)
+        row_enc["Owners"] = row_dict.get("Owners",1)
+
+        X_row = {f: row_enc.get(f,0) for f in features}
+        X_df = pd.DataFrame([X_row])
+        X_scaled = scaler.transform(X_df)
+        pred = model.predict(X_scaled)[0]
+
+        info = get_brand_info(row_dict["Brand"])
+        pred = int(pred * CITY_MULTIPLIERS.get(row_dict["City"],1.0) *
                    SEASONAL_FACTORS.get(datetime.now().month,1.0) *
                    (info["demand_score"]/10))
-        results.append({"Brand":row["Brand"],"Model":row["Model"],"Year":row["Year"],
-                        "Predicted_Price":pred})
+
+        results.append({"Brand":row_dict["Brand"],"Model":row_dict["Model"],
+                        "Year":row_dict["Year"],"Predicted_Price":pred})
         prog.progress((i+1)/len(df))
+
     return pd.DataFrame(results)
 
 # --------------------------------------------------------------
-# 8. SIDEBAR (clean keys)
+# 8. SIDEBAR
 # --------------------------------------------------------------
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/car--v1.png",width=80)
@@ -344,7 +382,7 @@ elif page == "predict":
         accident = st.selectbox("Accident *",["No","Minor","Major"])
 
     st.markdown("---")
-    st.subheader("Upload Car Photos (optional – auto damage)")
+    st.subheader("Upload Car Photos (optional)")
     uploaded = st.file_uploader("Choose images",type=["png","jpg","jpeg"],accept_multiple_files=True)
     damage_res = None
     if uploaded:
@@ -375,54 +413,77 @@ elif page == "predict":
 elif page == "csv":
     st.title("CSV Analysis – Bulk Price Prediction")
     st.markdown(
-        "<div class='csv-card'><strong>Upload CSV (columns: Brand, Model, Year, Mileage, Fuel_Type, Transmission, Owners, Condition, Accident_History, City)</strong></div>",
+        """
+        <div class='csv-card'>
+        <strong>Upload CSV with car details</strong><br>
+        Required: <code>Brand</code>, <code>Model</code>, <code>Year</code><br>
+        Optional: <code>Mileage</code>, <code>Fuel_Type</code>, <code>City</code>, etc.
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    uploaded_csv = st.file_uploader("Choose CSV",type="csv")
+
+    # Template
+    template = pd.DataFrame([{
+        "Brand": "Maruti Suzuki", "Model": "Swift", "Year": 2020,
+        "Mileage": 35000, "Fuel_Type": "Petrol", "Transmission": "Manual",
+        "Owners": 1, "Condition": "Good", "Accident_History": "No", "City": "Mumbai"
+    }])
+    csv_template = template.to_csv(index=False).encode()
+    st.download_button("Download Sample CSV", csv_template, "sample_car_data.csv", "text/csv")
+
+    uploaded_csv = st.file_uploader("Upload your CSV", type="csv")
     if uploaded_csv:
-        df = pd.read_csv(uploaded_csv)
-        st.write("**Preview:**"); st.dataframe(df.head(),use_container_width=True)
-        if st.button("Analyze & Predict",type="primary",use_container_width=True):
-            with st.spinner("Predicting..."):
-                results = predict_batch(df)
-            st.success(f"Done! {len(results)} cars analyzed.")
-            results["Fair_Value"] = results["Predicted_Price"].apply(format_price)
-            results["Quick_Sale"] = (results["Predicted_Price"]*0.85).apply(format_price)
-            results["Premium"] = (results["Predicted_Price"]*1.15).apply(format_price)
-            st.subheader("Results")
-            st.dataframe(results.style.format({"Predicted_Price":format_price}),use_container_width=True)
-            csv_out = results.to_csv(index=False).encode()
-            st.download_button("Download CSV",csv_out,"predicted_prices.csv","text/csv")
-            fig = px.histogram(results,x="Predicted_Price",title="Price Distribution")
-            st.plotly_chart(fig,use_container_width=True)
+        try:
+            df = pd.read_csv(uploaded_csv)
+            st.write("**Preview:**")
+            st.dataframe(df.head(), use_container_width=True)
+
+            if st.button("Analyze & Predict Prices", type="primary", use_container_width=True):
+                with st.spinner("Predicting..."):
+                    results = predict_batch(df.copy())
+
+                if results.empty:
+                    st.error("Prediction failed. Check columns.")
+                else:
+                    st.success(f"Done! {len(results)} cars analyzed.")
+                    results["Fair_Value"] = results["Predicted_Price"].apply(format_price)
+                    results["Quick_Sale"] = (results["Predicted_Price"] * 0.85).apply(lambda x: format_price(int(x)))
+                    results["Premium"] = (results["Predicted_Price"] * 1.15).apply(lambda x: format_price(int(x)))
+                    st.subheader("Results")
+                    st.dataframe(results[["Brand","Model","Year","Fair_Value","Quick_Sale","Premium"]], use_container_width=True)
+                    csv_out = results.to_csv(index=False).encode()
+                    st.download_button("Download Results", csv_out, "predicted_prices.csv", "text/csv")
+                    fig = px.histogram(results, x="Predicted_Price", title="Price Distribution")
+                    st.plotly_chart(fig, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"CSV error: {e}")
 
 elif page == "compare":
     st.title("Compare Cars")
-    st.info("Select up to 4 cars to compare (feature coming soon).")
+    st.info("Feature coming soon.")
 
 elif page == "emi":
     st.title("EMI Calculator")
-    st.info("EMI calculator coming soon.")
+    st.info("Coming soon.")
 
 elif page == "insights":
     st.title("Market Insights")
     brand_df = pd.DataFrame([{"Brand":b,"Demand":v["demand_score"],"Category":v["category"]} for b,v in CAR_DATABASE.items()])
-    fig = px.bar(brand_df,x="Brand",y="Demand",color="Category",title="Brand Demand Scores")
+    fig = px.bar(brand_df,x="Brand",y="Demand",color="Category",title="Brand Demand")
     st.plotly_chart(fig,use_container_width=True)
 
 elif page == "about":
-    st.title("About the System")
+    st.title("About")
     st.markdown(
         """
         **Features**  
-        • **All Indian cars** (30+ brands, 200+ models)  
-        • **CSV bulk prediction** – upload any dataset  
-        • **AI damage detection** (OpenCV)  
-        • **City & seasonal pricing**  
-        • **Robust ML** with safe fallback  
-
-        **Data:** CarWale, CarDekho, ZigWheels (2025)  
-        **Accuracy:** ~94% on synthetic data (replace with real sales for production)
+        • All Indian cars (30+ brands)  
+        • CSV bulk prediction (auto column mapping)  
+        • AI damage detection  
+        • City & seasonal pricing  
+        **Accuracy:** ~94% (replace with real data for production)
         """
     )
 
@@ -431,7 +492,7 @@ elif page == "about":
 # --------------------------------------------------------------
 st.markdown("---")
 if st.session_state.predictions_history:
-    with st.expander("Prediction History"):
+    with st.expander("History"):
         st.dataframe(pd.DataFrame(st.session_state.predictions_history),hide_index=True)
 
 st.markdown(
