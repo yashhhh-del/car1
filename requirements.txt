@@ -5,4 +5,6 @@ scikit-learn
 plotly
 opencv-python-headless
 Pillow
+BeautifulSoup
+
 
