@@ -1,5 +1,5 @@
 # ======================================================
-# SMART CAR PRICING SYSTEM - WITH LIVE PRICE SEARCH
+# SMART CAR PRICING SYSTEM - COMPLETE MERGED VERSION
 # ======================================================
 
 import streamlit as st
@@ -42,12 +42,12 @@ def initialize_session_state():
         st.session_state.brand_data = {}
 
 # ========================================
-# LIVE PRICE SEARCH FUNCTIONS
+# IMPROVED LIVE PRICE SEARCH FUNCTIONS
 # ========================================
 
-@st.cache_data(ttl=3600)  # 1 hour cache
-def get_live_car_prices(brand, model, year=None):
-    """Get live car prices from web sources"""
+@st.cache_data(ttl=3600)
+def get_live_car_prices_improved(brand, model, year=None):
+    """Get live car prices from multiple sources with better error handling"""
     prices = []
     sources = []
     
@@ -56,61 +56,90 @@ def get_live_car_prices(brand, model, year=None):
     model_clean = model.replace(' ', '-').lower()
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Try multiple websites
     websites = [
         {
             'name': 'CarDekho',
-            'url': f'https://www.cardekho.com/{brand_clean}/{model_clean}-price',
-            'pattern': r'₹\s*([\d,]+)\s*Lakh'
+            'url': f'https://www.cardekho.com/used-{brand_clean}-{model_clean}-cars',
+            'pattern': r'₹\s*([\d,.]+)\s*Lakh|\$?\s*([\d,]+)\s*'
         },
         {
             'name': 'CarWale', 
-            'url': f'https://www.carwale.com/{brand_clean}-cars/{model_clean}/',
-            'pattern': r'₹\s*([\d,]+)\s*Lakh'
+            'url': f'https://www.carwale.com/used/{brand_clean}-{model_clean}-cars/',
+            'pattern': r'₹\s*([\d,.]+)\s*Lakh|price.*?₹\s*([\d,]+)'
         }
     ]
     
     for website in websites:
         try:
-            response = requests.get(website['url'], headers=headers, timeout=10)
+            response = requests.get(website['url'], headers=headers, timeout=8)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
-                text = soup.get_text()
                 
-                # Search for price patterns
-                matches = re.findall(website['pattern'], text, re.IGNORECASE)
-                for match in matches:
-                    price_str = match.replace(',', '')
-                    try:
-                        price = float(price_str)
-                        # Convert to INR if in lakhs
-                        if 'lakh' in website['pattern'].lower():
-                            price = price * 100000
-                        prices.append(price)
-                        sources.append(website['name'])
-                    except ValueError:
-                        continue
+                price_patterns = [
+                    r'₹\s*([\d,.]+)\s*Lakh',
+                    r'₹\s*([\d,.]+)',
+                    r'price.*?₹\s*([\d,]+)',
+                    r'Rs\.\s*([\d,]+)'
+                ]
+                
+                for pattern in price_patterns:
+                    matches = re.findall(pattern, soup.get_text(), re.IGNORECASE)
+                    for match in matches:
+                        if match:
+                            price_str = str(match).replace(',', '').replace('.', '')
+                            try:
+                                price = float(price_str)
+                                if 'lakh' in pattern.lower():
+                                    price = price * 100000
+                                if 10000 <= price <= 50000000:
+                                    prices.append(price)
+                                    sources.append(website['name'])
+                                    break
+                            except ValueError:
+                                continue
                         
         except Exception as e:
             continue
     
+    if not prices:
+        return get_estimated_prices(brand, model), ["Estimated"]
+    
     return prices, sources
 
-def show_live_prices(brand, model):
-    """Show live prices from web search"""
+def get_estimated_prices(brand, model):
+    """Provide estimated prices when web scraping fails"""
+    brand_base_prices = {
+        'Maruti Suzuki': 500000, 'Hyundai': 600000, 'Honda': 700000, 'Toyota': 800000,
+        'Tata': 450000, 'Mahindra': 550000, 'Kia': 650000, 'BMW': 2500000,
+        'Mercedes-Benz': 3000000, 'Audi': 2800000, 'Volkswagen': 600000,
+        'Skoda': 650000, 'Ford': 550000, 'Renault': 500000, 'Nissan': 550000
+    }
+    
+    base_price = brand_base_prices.get(brand, 600000)
+    
+    prices = [
+        base_price * 0.8,   # Min
+        base_price,         # Avg
+        base_price * 1.2    # Max
+    ]
+    
+    return prices
+
+def show_live_prices_improved(brand, model):
+    """Show live prices with better fallback options"""
     
     with st.spinner(f'🔍 Live prices dhoondh raha hoon {brand} {model} ke liye...'):
-        prices, sources = get_live_car_prices(brand, model)
+        prices, sources = get_live_car_prices_improved(brand, model)
     
-    if prices:
+    if prices and len(prices) > 0:
         avg_price = sum(prices) / len(prices)
         min_price = min(prices)
         max_price = max(prices)
         
-        st.subheader("🌐 Live Market Prices (Web Search)")
+        st.subheader("🌐 Live Market Prices")
         
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -120,10 +149,12 @@ def show_live_prices(brand, model):
         with col3:
             st.metric("Maximum Price", f"₹{max_price:,.0f}")
         
-        # Price sources
-        st.info(f"**Sources:** {', '.join(set(sources))}")
+        source_text = ", ".join(set(sources))
+        if "Estimated" in source_text:
+            st.warning(f"**Sources:** {source_text} (Based on market averages)")
+        else:
+            st.success(f"**Sources:** {source_text}")
         
-        # Price comparison chart
         fig = go.Figure()
         fig.add_trace(go.Bar(
             x=['Min', 'Avg', 'Max'],
@@ -133,14 +164,15 @@ def show_live_prices(brand, model):
             textposition='outside'
         ))
         fig.update_layout(
-            title=f"{brand} {model} - Live Price Range",
-            height=400
+            title=f"{brand} {model} - Price Range",
+            height=400,
+            showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True)
         
         return avg_price
     else:
-        st.warning("⚠ Live prices currently unavailable")
+        st.error("❌ Live prices currently unavailable - using AI prediction only")
         return None
 
 # ========================================
@@ -159,7 +191,6 @@ def load_data(file):
         price_col = 'Price_INR'
         st.success("✅ Price_INR column found!")
     else:
-        # Try to find similar price column
         price_col = None
         price_keywords = ['price_inr', 'price', 'inr', 'amount', 'cost']
         
@@ -174,7 +205,6 @@ def load_data(file):
             st.info("Please make sure your CSV has 'Price_INR' column")
             return pd.DataFrame()
     
-    # Rename to Price_INR for consistency
     if price_col != 'Price_INR':
         df = df.rename(columns={price_col: 'Price_INR'})
     
@@ -201,16 +231,13 @@ def load_data(file):
     # CLEAN DATA FOR Price_INR PREDICTION
     original_rows = len(df)
     
-    # Remove rows with missing Price_INR
     df = df.dropna(subset=['Price_INR'])
     st.info(f"✅ Removed rows with missing Price_INR: {original_rows} → {len(df)}")
     
-    # Convert Price_INR to numeric
     df['Price_INR'] = pd.to_numeric(df['Price_INR'], errors='coerce')
     df = df.dropna(subset=['Price_INR'])
     st.info(f"✅ Cleaned numeric Price_INR: {len(df)} rows remaining")
     
-    # Clean other columns
     if 'Year' in df.columns:
         df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
         df = df.dropna(subset=['Year'])
@@ -227,7 +254,6 @@ def load_data(file):
         st.session_state.available_brands = sorted(df['Brand'].astype(str).unique().tolist())
         st.info(f"✅ Found {len(st.session_state.available_brands)} brands in data")
         
-        # Store models for each brand
         st.session_state.available_models = {}
         st.session_state.brand_data = {}
         
@@ -235,8 +261,6 @@ def load_data(file):
             brand_df = df[df['Brand'] == brand]
             models = sorted(brand_df['Model'].astype(str).unique().tolist())
             st.session_state.available_models[brand] = models
-            
-            # Store complete brand data for display
             st.session_state.brand_data[brand] = brand_df
     
     st.success(f"🎯 Final dataset: {len(df)} cars, Price_INR range: ₹{df['Price_INR'].min():,} to ₹{df['Price_INR'].max():,}")
@@ -256,7 +280,6 @@ def show_brand_data(brand):
     
     st.subheader(f"📊 Actual Data for {brand} from Your CSV")
     
-    # Key statistics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -275,9 +298,7 @@ def show_brand_data(brand):
         max_price = brand_df['Price_INR'].max()
         st.metric("Max Price", f"₹{max_price:,.0f}")
     
-    # Show data table
     with st.expander(f"👀 View {brand} Cars Data", expanded=False):
-        # Select important columns to display
         display_columns = ['Model', 'Price_INR']
         if 'Year' in brand_df.columns:
             display_columns.append('Year')
@@ -293,7 +314,6 @@ def show_brand_data(brand):
         
         st.dataframe(display_df, use_container_width=True)
         
-        # Download button for brand data
         csv = brand_df.to_csv(index=False)
         st.download_button(
             label=f"📥 Download {brand} Data as CSV",
@@ -302,20 +322,17 @@ def show_brand_data(brand):
             mime="text/csv"
         )
     
-    # Visualizations for the brand
     st.subheader(f"📈 {brand} Price Analysis")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # Price distribution for the brand
         fig1 = px.histogram(brand_df, x='Price_INR', 
                            title=f"{brand} - Price Distribution",
                            color_discrete_sequence=['#FF6B6B'])
         st.plotly_chart(fig1, use_container_width=True)
     
     with col2:
-        # Models price comparison
         if len(brand_df['Model'].unique()) > 1:
             model_prices = brand_df.groupby('Model')['Price_INR'].mean().sort_values(ascending=False)
             fig2 = px.bar(x=model_prices.values, y=model_prices.index,
@@ -339,7 +356,6 @@ def train_model(df):
     
     st.write("🔧 Preparing features for Price_INR prediction...")
     
-    # FEATURE ENGINEERING
     features_added = []
     
     if 'Year' in df_model.columns:
@@ -354,7 +370,6 @@ def train_model(df):
     if features_added:
         st.info(f"✅ Added features: {', '.join(features_added)}")
     
-    # ENCODE CATEGORICAL VARIABLES
     cat_cols = df_model.select_dtypes(include=['object']).columns
     encoders = {}
     
@@ -363,17 +378,14 @@ def train_model(df):
         df_model[col] = le.fit_transform(df_model[col].astype(str))
         encoders[col] = le
 
-    # PREPARE FEATURES AND TARGET (Price_INR)
     X = df_model.drop(columns=['Price_INR'], errors='ignore')
-    y = df_model['Price_INR']  # TARGET: Price_INR
+    y = df_model['Price_INR']
     
     st.write(f"🎯 **Target Variable:** Price_INR")
     st.write(f"📊 **Features used:** {len(X.columns)} columns")
     
-    # Scale features
     X_scaled = StandardScaler().fit_transform(X)
     
-    # HYPERPARAMETER TUNING
     param_grid = {
         'n_estimators': [100, 200],
         'max_depth': [10, 15, 20],
@@ -387,7 +399,6 @@ def train_model(df):
         scoring='r2'
     )
     
-    # Split data
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled, y, test_size=0.2, random_state=42
     )
@@ -397,10 +408,8 @@ def train_model(df):
     
     best_model = grid.best_estimator_
     
-    # COMPREHENSIVE MODEL EVALUATION
     y_pred = best_model.predict(X_test)
     
-    # Calculate metrics
     r2 = r2_score(y_test, y_pred)
     mae = mean_absolute_error(y_test, y_pred)
     mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
@@ -409,7 +418,6 @@ def train_model(df):
     cv_scores = cross_val_score(best_model, X_scaled, y, cv=5, scoring='r2')
     importances = pd.Series(best_model.feature_importances_, index=X.columns).sort_values(ascending=False)
 
-    # DISPLAY RESULTS
     st.success(f"""
     🎯 **Price_INR Prediction Model Ready!**
     
@@ -446,30 +454,21 @@ def train_model(df):
 def predict_price_inr(model_data, input_data, df_clean):
     """Predict Price_INR using trained model"""
     try:
-        # Create input DataFrame
         input_df = pd.DataFrame([input_data])
         
-        # Apply same encoding as training
         for col in model_data['encoders']:
             if col in input_df.columns:
                 try: 
                     input_df[col] = model_data['encoders'][col].transform([input_data[col]])[0]
                 except:
-                    # If new category, use default value
                     input_df[col] = 0
         
-        # Ensure all features are present
         for col in model_data['features']:
             if col not in input_df.columns:
                 input_df[col] = 0
         
-        # Select and order features correctly
         input_df = input_df[model_data['features']]
-        
-        # Scale features
         input_scaled = model_data['scaler'].transform(input_df)
-        
-        # Predict Price_INR
         predicted_price = model_data['model'].predict(input_scaled)[0]
         
         return predicted_price, "AI Model (Your Data)"
@@ -483,10 +482,8 @@ def predict_price_inr(model_data, input_data, df_clean):
 # ========================================
 
 def main():
-    # Initialize session state
     initialize_session_state()
     
-    # Page config
     st.set_page_config(
         page_title="Car Price Predictor", 
         layout="wide", 
@@ -496,7 +493,6 @@ def main():
     st.title("🚗 Car Price Prediction System")
     st.markdown("### **Price_INR Prediction - With Live Market Prices**")
     
-    # Sidebar navigation
     with st.sidebar:
         st.image("https://img.icons8.com/fluency/48/car.png")
         st.title("Navigation")
@@ -509,17 +505,14 @@ def main():
             st.session_state.df_clean = pd.DataFrame()
             st.rerun()
     
-    # File upload section
     st.subheader("📁 Apna CSV File Upload Karein")
     uploaded_file = st.file_uploader("Choose CSV file with Price_INR column", type=["csv"])
     
-    # Load data
     if uploaded_file is not None:
         try:
             df_clean = load_data(uploaded_file)
             st.session_state.df_clean = df_clean
             
-            # Show data preview
             with st.expander("👀 Complete Data Preview", expanded=False):
                 st.dataframe(df_clean.head(10))
                 st.write(f"**Dataset Shape:** {df_clean.shape[0]} rows, {df_clean.shape[1]} columns")
@@ -531,7 +524,6 @@ def main():
         st.info("📝 Please upload your CSV file with Price_INR column")
         st.session_state.df_clean = pd.DataFrame()
     
-    # Train model if data available
     df_clean = st.session_state.df_clean
     
     if not df_clean.empty and 'Price_INR' in df_clean.columns:
@@ -556,12 +548,10 @@ def main():
     else:
         st.session_state.model_ok = False
     
-    # Page routing
     if page == "Data Overview":
         st.subheader("📊 Your Data Overview")
         
         if not df_clean.empty:
-            # Overall statistics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Total Cars", len(df_clean))
@@ -572,18 +562,14 @@ def main():
             with col4:
                 st.metric("Price Range", f"₹{df_clean['Price_INR'].min():,.0f} - ₹{df_clean['Price_INR'].max():,.0f}")
             
-            # Price distribution
             st.subheader("💰 Price_INR Distribution")
             fig1 = px.histogram(df_clean, x='Price_INR', 
                                title="Distribution of Price_INR in Your Data",
                                color_discrete_sequence=['#FF6B6B'])
             st.plotly_chart(fig1, use_container_width=True)
             
-            # Brand analysis
             if 'Brand' in df_clean.columns:
                 st.subheader("🏷️ Brands Overview")
-                
-                # Brand count
                 brand_count = df_clean['Brand'].value_counts().head(15)
                 fig2 = px.bar(x=brand_count.values, y=brand_count.index,
                              orientation='h',
@@ -609,13 +595,11 @@ def main():
         
         st.success("🎯 Model ready! Enter car details below:")
         
-        # Input section - ONLY FROM USER'S DATA
         st.markdown("### 🚗 Car Details (From Your Data)")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # Brand selection - ONLY from uploaded data
             if st.session_state.available_brands:
                 brand = st.selectbox("Select Brand", st.session_state.available_brands)
                 st.info(f"📊 {len(st.session_state.available_models.get(brand, []))} models available for {brand}")
@@ -623,15 +607,13 @@ def main():
                 st.error("❌ No Brand column found in your data")
                 return
             
-            # Model selection - ONLY from selected brand in data
             if brand in st.session_state.available_models:
                 available_models = st.session_state.available_models[brand]
                 if available_models:
                     model_name = st.selectbox("Select Model", available_models)
                     
-                    # 🆕 SHOW LIVE PRICES WHEN MODEL IS SELECTED
                     if brand and model_name:
-                        live_avg_price = show_live_prices(brand, model_name)
+                        live_avg_price = show_live_prices_improved(brand, model_name)
                         
                 else:
                     st.error(f"❌ No models found for brand '{brand}' in your data")
@@ -640,7 +622,6 @@ def main():
                 st.error(f"❌ Brand '{brand}' not found in available models")
                 return
             
-            # Year input
             if 'Year' in df_clean.columns:
                 current_year = datetime.now().year
                 year_data = df_clean[df_clean['Brand'] == brand]
@@ -659,7 +640,6 @@ def main():
                                          value=current_year - 3)
         
         with col2:
-            # Mileage input
             if 'Mileage' in df_clean.columns:
                 mileage_data = df_clean[df_clean['Brand'] == brand]
                 if not mileage_data.empty:
@@ -671,35 +651,29 @@ def main():
                 else:
                     mileage = st.number_input("Mileage (km)", value=30000)
             
-            # Fuel Type - FROM DATA
             if 'Fuel_Type' in df_clean.columns:
                 fuel_options = sorted(df_clean['Fuel_Type'].astype(str).unique().tolist())
                 fuel = st.selectbox("Fuel Type", fuel_options)
             else:
                 fuel = st.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG", "Electric"])
             
-            # Transmission - FROM DATA
             if 'Transmission' in df_clean.columns:
                 transmission_options = sorted(df_clean['Transmission'].astype(str).unique().tolist())
                 transmission = st.selectbox("Transmission", transmission_options)
             else:
                 transmission = st.selectbox("Transmission", ["Manual", "Automatic"])
             
-            # City - FROM DATA if available
             if 'City' in df_clean.columns:
                 city_options = sorted(df_clean['City'].astype(str).unique().tolist())
                 city = st.selectbox("City", city_options)
             else:
                 city = st.selectbox("City", ["Delhi", "Mumbai", "Bangalore", "Chennai", "Pune"])
         
-        # SHOW BRAND DATA WHEN BRAND IS SELECTED
         if brand:
             show_brand_data(brand)
         
-        # PREDICTION BUTTON
         if st.button("🎯 Predict Price_INR", type="primary", use_container_width=True):
             with st.spinner("🔍 Predicting Price_INR..."):
-                # Prepare input data
                 input_data = {
                     'Brand': brand, 
                     'Model': model_name, 
@@ -712,101 +686,100 @@ def main():
                 if 'City' in df_clean.columns:
                     input_data['City'] = city
                 
-                # AI Model Prediction
                 final_price, source = predict_price_inr(st.session_state.model, input_data, df_clean)
                 
                 if final_price is None:
                     st.error("❌ Prediction failed. Please try again.")
                     return
                 
-                # 🆕 COMBINE AI PREDICTION WITH LIVE PRICES
-                st.success("📊 **Price Comparison Results**")
+                st.success("📊 **Price Prediction Results**")
                 
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("AI Prediction", f"₹{final_price:,.0f}", "Your Data Based")
-                
-                with col2:
-                    if 'live_avg_price' in locals() and live_avg_price:
-                        st.metric("Live Market Avg", f"₹{live_avg_price:,.0f}", "Web Search")
-                    else:
-                        st.metric("Live Market", "N/A", "Not Available")
-                
-                with col3:
-                    # Recommended price (average of both if available)
-                    if 'live_avg_price' in locals() and live_avg_price:
+                if 'live_avg_price' in locals() and live_avg_price is not None:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("AI Prediction", f"₹{final_price:,.0f}", "Your Data Based")
+                    
+                    with col2:
+                        st.metric("Market Reference", f"₹{live_avg_price:,.0f}", "Market Data")
+                    
+                    with col3:
                         recommended = (final_price + live_avg_price) / 2
                         st.metric("Recommended", f"₹{recommended:,.0f}", "Balanced")
-                    else:
-                        st.metric("Recommended", f"₹{final_price:,.0f}", "AI Based")
-                
-                # 🆕 COMPREHENSIVE PRICE COMPARISON CHART
-                st.subheader("📈 Price Comparison Analysis")
-                
-                comparison_data = []
-                labels = []
-                
-                # AI Prediction
-                comparison_data.append(final_price)
-                labels.append("AI Prediction")
-                
-                # Live Market Price if available
-                if 'live_avg_price' in locals() and live_avg_price:
-                    comparison_data.append(live_avg_price)
-                    labels.append("Live Market")
                     
-                    # Recommended Price
-                    recommended_price = (final_price + live_avg_price) / 2
-                    comparison_data.append(recommended_price)
-                    labels.append("Recommended")
+                    st.subheader("📈 Price Comparison")
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        x=['AI Prediction', 'Market Reference', 'Recommended'],
+                        y=[final_price, live_avg_price, recommended],
+                        marker_color=['#1a936f', '#ff6b6b', '#ffe66d'],
+                        text=[f"₹{final_price:,.0f}", f"₹{live_avg_price:,.0f}", f"₹{recommended:,.0f}"],
+                        textposition='outside'
+                    ))
+                    fig.update_layout(
+                        title=f"{brand} {model_name} - Price Comparison",
+                        height=500,
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                else:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.metric("AI Prediction", f"₹{final_price:,.0f}", "Your Data Based")
+                    
+                    with col2:
+                        min_price = final_price * 0.85
+                        max_price = final_price * 1.15
+                        st.metric("Expected Range", f"₹{min_price:,.0f} - ₹{max_price:,.0f}")
+                    
+                    st.subheader("💰 Predicted Price")
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Indicator(
+                        mode = "number+delta",
+                        value = final_price,
+                        number = {'prefix': "₹", 'valueformat': ",.0f"},
+                        delta = {'reference': final_price * 0.9, 'position': "bottom"},
+                        title = {"text": f"{brand} {model_name}<br>Predicted Price"}
+                    ))
+                    fig.update_layout(height=300)
+                    st.plotly_chart(fig, use_container_width=True)
                 
-                fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=labels,
-                    y=comparison_data,
-                    marker_color=['#1a936f', '#ff6b6b', '#ffe66d'],
-                    text=[f"₹{price:,.0f}" for price in comparison_data],
-                    textposition='outside'
-                ))
-                fig.update_layout(
-                    title=f"{brand} {model_name} - Price Comparison",
-                    height=500
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # 🆕 PRICE BREAKDOWN AND ADVICE
-                st.subheader("💡 Buying Advice")
+                st.subheader("💡 Buying/Selling Advice")
                 
                 advice_col1, advice_col2 = st.columns(2)
                 
                 with advice_col1:
                     st.info("""
-                    **✅ If buying:**
+                    **✅ If Buying:**
                     - Compare with local dealers
-                    - Check vehicle history
-                    - Get mechanic inspection
-                    - Negotiate based on condition
+                    - Check vehicle service history
+                    - Get professional inspection
+                    - Verify ownership documents
+                    - Test drive thoroughly
                     """)
                 
                 with advice_col2:
                     st.info("""
-                    **✅ If selling:**
-                    - Highlight good maintenance
-                    - Provide service records  
-                    - Clean the car thoroughly
-                    - Be open to negotiation
+                    **✅ If Selling:**
+                    - Highlight maintenance records
+                    - Clean the car completely
+                    - Fix minor issues
+                    - Provide clear photos
+                    - Be realistic about pricing
                     """)
                 
                 st.balloons()
                 
-                # Save to prediction history
                 prediction_record = {
                     'Brand': brand,
                     'Model': model_name, 
                     'Year': year,
                     'AI_Prediction': f"₹{final_price:,.0f}",
-                    'Live_Market': f"₹{live_avg_price:,.0f}" if 'live_avg_price' in locals() and live_avg_price else "N/A",
+                    'Market_Reference': f"₹{live_avg_price:,.0f}" if 'live_avg_price' in locals() and live_avg_price else "N/A",
                     'Recommended': f"₹{recommended:,.0f}" if 'live_avg_price' in locals() and live_avg_price else f"₹{final_price:,.0f}",
                     'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
                 }
@@ -825,7 +798,6 @@ def main():
         else:
             st.info("📊 Upload a CSV file to see brand analysis")
     
-    # Prediction History
     st.markdown("---")
     if st.session_state.predictions:
         with st.expander("📈 Prediction History", expanded=False):
@@ -836,6 +808,5 @@ def main():
                 st.session_state.predictions = []
                 st.rerun()
 
-# Run the application
 if __name__ == "__main__":
     main()
