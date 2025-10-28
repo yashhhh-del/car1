@@ -1,5 +1,5 @@
 # ======================================================
-# SMART CAR PRICING SYSTEM - COMPLETE MANUAL INPUT OPTIONS
+# SMART CAR PRICING SYSTEM - FIXED VERSION
 # ======================================================
 
 import streamlit as st
@@ -24,125 +24,49 @@ import os
 
 CAR_DATABASE = {
     'Hyundai': {
-        'models': ['i20', 'Creta', 'Verna', 'i10', 'Venue', 'Aura', 'Alcazar', 'Tucson', 'Santro', 'Grand i10'],
-        'car_types': ['Hatchback', 'SUV', 'Sedan', 'Hatchback', 'SUV', 'Sedan', 'SUV', 'SUV', 'Hatchback', 'Hatchback'],
-        'engine_cc': [1197, 1493, 1493, 1086, 1197, 1197, 2199, 2199, 1086, 1197],
-        'power_hp': [82, 113, 113, 68, 82, 82, 148, 148, 68, 82],
-        'seats': [5, 5, 5, 5, 5, 5, 7, 5, 5, 5]
+        'models': ['i20', 'Creta', 'Verna', 'i10', 'Venue', 'Aura', 'Alcazar', 'Tucson'],
+        'car_types': ['Hatchback', 'SUV', 'Sedan', 'Hatchback', 'SUV', 'Sedan', 'SUV', 'SUV'],
+        'engine_cc': [1197, 1493, 1493, 1086, 1197, 1197, 2199, 2199],
+        'power_hp': [82, 113, 113, 68, 82, 82, 148, 148],
+        'seats': [5, 5, 5, 5, 5, 5, 7, 5]
     },
     'Maruti Suzuki': {
-        'models': ['Swift', 'Baleno', 'Dzire', 'WagonR', 'Brezza', 'Ertiga', 'Ciaz', 'Alto', 'S-Presso', 'Ignis'],
-        'car_types': ['Hatchback', 'Hatchback', 'Sedan', 'Hatchback', 'SUV', 'MUV', 'Sedan', 'Hatchback', 'Hatchback', 'Hatchback'],
-        'engine_cc': [1197, 1197, 1197, 998, 1462, 1462, 1462, 796, 998, 1197],
-        'power_hp': [88, 88, 88, 66, 103, 103, 103, 47, 66, 88],
-        'seats': [5, 5, 5, 5, 5, 7, 5, 5, 5, 5]
+        'models': ['Swift', 'Baleno', 'Dzire', 'WagonR', 'Brezza', 'Ertiga', 'Ciaz', 'Alto'],
+        'car_types': ['Hatchback', 'Hatchback', 'Sedan', 'Hatchback', 'SUV', 'MUV', 'Sedan', 'Hatchback'],
+        'engine_cc': [1197, 1197, 1197, 998, 1462, 1462, 1462, 796],
+        'power_hp': [88, 88, 88, 66, 103, 103, 103, 47],
+        'seats': [5, 5, 5, 5, 5, 7, 5, 5]
     },
     'Tata': {
-        'models': ['Nexon', 'Harrier', 'Altroz', 'Punch', 'Safari', 'Tiago', 'Tigor', 'Nexon EV', 'Hexa', 'Sumo'],
-        'car_types': ['SUV', 'SUV', 'Hatchback', 'SUV', 'SUV', 'Hatchback', 'Sedan', 'SUV', 'SUV', 'MUV'],
-        'engine_cc': [1199, 1956, 1199, 1199, 1956, 1199, 1199, 0, 2179, 1948],
-        'power_hp': [118, 168, 108, 118, 168, 84, 84, 129, 148, 89],
-        'seats': [5, 5, 5, 5, 7, 5, 5, 5, 7, 8]
+        'models': ['Nexon', 'Harrier', 'Altroz', 'Punch', 'Safari', 'Tiago', 'Tigor'],
+        'car_types': ['SUV', 'SUV', 'Hatchback', 'SUV', 'SUV', 'Hatchback', 'Sedan'],
+        'engine_cc': [1199, 1956, 1199, 1199, 1956, 1199, 1199],
+        'power_hp': [118, 168, 108, 118, 168, 84, 84],
+        'seats': [5, 5, 5, 5, 7, 5, 5]
     },
     'Honda': {
-        'models': ['City', 'Amaze', 'WR-V', 'Jazz', 'Civic', 'Accord', 'CR-V', 'Brio'],
-        'car_types': ['Sedan', 'Sedan', 'SUV', 'Hatchback', 'Sedan', 'Sedan', 'SUV', 'Hatchback'],
-        'engine_cc': [1498, 1199, 1199, 1199, 1799, 1993, 1993, 1198],
-        'power_hp': [119, 89, 89, 89, 140, 154, 158, 88],
-        'seats': [5, 5, 5, 5, 5, 5, 5, 5]
+        'models': ['City', 'Amaze', 'WR-V', 'Jazz', 'Civic'],
+        'car_types': ['Sedan', 'Sedan', 'SUV', 'Hatchback', 'Sedan'],
+        'engine_cc': [1498, 1199, 1199, 1199, 1799],
+        'power_hp': [119, 89, 89, 89, 140],
+        'seats': [5, 5, 5, 5, 5]
     },
     'Toyota': {
-        'models': ['Innova Crysta', 'Fortuner', 'Glanza', 'Urban Cruiser', 'Camry', 'Etios', 'Corolla', 'Qualis'],
-        'car_types': ['MUV', 'SUV', 'Hatchback', 'SUV', 'Sedan', 'Sedan', 'Sedan', 'MUV'],
-        'engine_cc': [2393, 2694, 1197, 1462, 2487, 1496, 1798, 2982],
-        'power_hp': [148, 201, 88, 103, 176, 88, 138, 91],
-        'seats': [7, 7, 5, 5, 5, 5, 5, 8]
-    },
-    'Kia': {
-        'models': ['Seltos', 'Sonet', 'Carens', 'Carnival', 'Rio', 'Picanto'],
-        'car_types': ['SUV', 'SUV', 'MUV', 'MUV', 'Hatchback', 'Hatchback'],
-        'engine_cc': [1493, 1197, 1493, 2199, 1248, 998],
-        'power_hp': [113, 81, 113, 197, 83, 66],
-        'seats': [5, 5, 6, 7, 5, 5]
-    },
-    'Mahindra': {
-        'models': ['Thar', 'Scorpio', 'XUV700', 'XUV300', 'Bolero', 'XUV500', 'Marazzo', 'KUV100'],
-        'car_types': ['SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'MUV', 'Hatchback'],
-        'engine_cc': [2184, 2179, 1997, 1197, 1493, 2179, 1497, 1198],
-        'power_hp': [150, 140, 197, 110, 75, 140, 121, 82],
-        'seats': [4, 7, 5, 5, 7, 7, 8, 6]
-    },
-    'BMW': {
-        'models': ['3 Series', '5 Series', 'X1', 'X3', 'X5', '7 Series', 'X7', 'Z4'],
-        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'Sedan', 'SUV', 'Convertible'],
-        'engine_cc': [1998, 1998, 1499, 1998, 2998, 2998, 2998, 1998],
-        'power_hp': [255, 248, 136, 248, 335, 335, 335, 255],
-        'seats': [5, 5, 5, 5, 5, 5, 7, 2]
-    },
-    'Mercedes-Benz': {
-        'models': ['C-Class', 'E-Class', 'GLC', 'GLE', 'A-Class', 'S-Class', 'GLA', 'CLA'],
-        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'Hatchback', 'Sedan', 'SUV', 'Coupe'],
-        'engine_cc': [1991, 1991, 1991, 2996, 1332, 2996, 1332, 1332],
-        'power_hp': [258, 258, 194, 362, 163, 362, 163, 163],
-        'seats': [5, 5, 5, 5, 5, 5, 5, 5]
-    },
-    'Audi': {
-        'models': ['A4', 'A6', 'Q3', 'Q5', 'Q7', 'A8', 'Q8', 'TT'],
-        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'Sedan', 'SUV', 'Coupe'],
-        'engine_cc': [1984, 1984, 1984, 1984, 2995, 2995, 2995, 1984],
-        'power_hp': [188, 241, 187, 248, 328, 328, 328, 188],
-        'seats': [5, 5, 5, 5, 7, 5, 5, 4]
-    },
-    'Volkswagen': {
-        'models': ['Polo', 'Vento', 'Taigun', 'Virtus', 'Tiguan', 'Passat'],
-        'car_types': ['Hatchback', 'Sedan', 'SUV', 'Sedan', 'SUV', 'Sedan'],
-        'engine_cc': [999, 999, 999, 999, 1984, 1984],
-        'power_hp': [114, 114, 114, 114, 177, 174],
-        'seats': [5, 5, 5, 5, 5, 5]
-    },
-    'Skoda': {
-        'models': ['Rapid', 'Kushaq', 'Slavia', 'Octavia', 'Kodiaq', 'Superb'],
-        'car_types': ['Sedan', 'SUV', 'Sedan', 'Sedan', 'SUV', 'Sedan'],
-        'engine_cc': [999, 999, 999, 1984, 1984, 1984],
-        'power_hp': [114, 114, 114, 187, 187, 187],
-        'seats': [5, 5, 5, 5, 7, 5]
-    },
-    'Ford': {
-        'models': ['EcoSport', 'Endeavour', 'Figo', 'Aspire', 'Mustang', 'Fiesta'],
-        'car_types': ['SUV', 'SUV', 'Hatchback', 'Sedan', 'Coupe', 'Sedan'],
-        'engine_cc': [1498, 1996, 1498, 1498, 5000, 1498],
-        'power_hp': [123, 168, 95, 95, 395, 95],
-        'seats': [5, 7, 5, 5, 4, 5]
-    },
-    'Renault': {
-        'models': ['Kwid', 'Triber', 'Duster', 'Kiger', 'Captur', 'Lodgy'],
-        'car_types': ['Hatchback', 'MUV', 'SUV', 'SUV', 'SUV', 'MUV'],
-        'engine_cc': [999, 999, 1498, 999, 1498, 1461],
-        'power_hp': [67, 71, 104, 71, 104, 83],
-        'seats': [5, 7, 5, 5, 5, 7]
-    },
-    'Nissan': {
-        'models': ['Magnite', 'Kicks', 'Sunny', 'Micra', 'Terrano', 'X-Trail'],
-        'car_types': ['SUV', 'SUV', 'Sedan', 'Hatchback', 'SUV', 'SUV'],
-        'engine_cc': [999, 1498, 1498, 1198, 1461, 1997],
-        'power_hp': [71, 104, 97, 76, 83, 141],
-        'seats': [5, 5, 5, 5, 5, 5]
+        'models': ['Innova Crysta', 'Fortuner', 'Glanza', 'Urban Cruiser', 'Camry'],
+        'car_types': ['MUV', 'SUV', 'Hatchback', 'SUV', 'Sedan'],
+        'engine_cc': [2393, 2694, 1197, 1462, 2487],
+        'power_hp': [148, 201, 88, 103, 176],
+        'seats': [7, 7, 5, 5, 5]
     }
 }
 
-# Complete options for manual input
 FUEL_TYPES = ["Petrol", "Diesel", "CNG", "Electric", "Hybrid"]
-TRANSMISSIONS = ["Manual", "Automatic", "CVT", "DSG", "AMT"]
-CAR_TYPES = ["Hatchback", "Sedan", "SUV", "MUV", "Luxury", "Coupe", "Convertible", "Minivan"]
-CAR_CONDITIONS = ["Excellent", "Very Good", "Good", "Fair", "Poor", "Needs Repair"]
+TRANSMISSIONS = ["Manual", "Automatic"]
+CAR_CONDITIONS = ["Excellent", "Very Good", "Good", "Fair", "Poor"]
 OWNER_TYPES = ["First", "Second", "Third", "Fourth & Above"]
-INSURANCE_STATUS = ["Comprehensive", "Third Party", "Expired", "No Insurance", "New Purchase"]
-COLORS = ["White", "Black", "Silver", "Grey", "Red", "Blue", "Brown", "Green", "Yellow", "Orange", "Purple", "Other"]
-CITIES = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Pune", "Hyderabad", "Kolkata", "Ahmedabad", 
-          "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal", "Visakhapatnam", "Patna"]
-SERVICE_HISTORY = ["Full Service History", "Partial Service History", "No Service History", "First Service Done"]
-ACCIDENT_HISTORY = ["No Accidents", "Minor Accidents (Scratches/Dents)", "Major Accidents (Structural Damage)", "Total Loss Vehicle"]
-CAR_AVAILABILITY = ["Available", "Sold", "Under Negotiation", "Not Available"]
+INSURANCE_STATUS = ["Comprehensive", "Third Party", "Expired", "No Insurance"]
+COLORS = ["White", "Black", "Silver", "Grey", "Red", "Blue", "Brown", "Other"]
+CITIES = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Pune", "Hyderabad", "Kolkata"]
 
 # ========================================
 # INITIALIZE SESSION STATE
@@ -170,94 +94,76 @@ def initialize_session_state():
         st.session_state.input_method = "CSV Data"
 
 # ========================================
-# COMPLETE MANUAL INPUT FUNCTIONS
+# MANUAL INPUT FUNCTIONS
 # ========================================
 
-def show_complete_manual_input_form():
-    """Show complete manual input form with all car details"""
-    st.subheader("🔧 Complete Car Details Entry")
+def show_manual_input_form():
+    """Show manual input form for car details"""
+    st.subheader("🔧 Manual Car Details Entry")
     
-    # Main car details
-    st.markdown("### 🚗 Basic Car Information")
-    
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     
     with col1:
-        # Brand selection with search
-        brand = st.selectbox("Brand *", list(CAR_DATABASE.keys()))
+        brand = st.selectbox("Brand", list(CAR_DATABASE.keys()))
         
-        # Model selection based on brand
         if brand in CAR_DATABASE:
-            model = st.selectbox("Model *", CAR_DATABASE[brand]['models'])
+            model = st.selectbox("Model", CAR_DATABASE[brand]['models'])
         else:
-            model = st.text_input("Model Name *")
+            model = st.text_input("Model Name")
         
-        # Car Type
         if brand in CAR_DATABASE and model in CAR_DATABASE[brand]['models']:
             model_index = CAR_DATABASE[brand]['models'].index(model)
             car_type = CAR_DATABASE[brand]['car_types'][model_index]
             st.text_input("Car Type", value=car_type, disabled=True)
         else:
-            car_type = st.selectbox("Car Type", CAR_TYPES)
+            car_type = st.selectbox("Car Type", ["Hatchback", "Sedan", "SUV", "MUV"])
+        
+        current_year = datetime.now().year
+        year = st.number_input("Manufacturing Year", min_value=1990, max_value=current_year, value=current_year-3)
+        
+        fuel_type = st.selectbox("Fuel Type", FUEL_TYPES)
+        transmission = st.selectbox("Transmission", TRANSMISSIONS)
     
     with col2:
-        # Year and basic specs
-        current_year = datetime.now().year
-        year = st.number_input("Manufacturing Year *", min_value=1980, max_value=current_year, value=current_year-3)
+        mileage = st.number_input("Mileage (km)", min_value=0, max_value=500000, value=30000, step=1000)
         
-        fuel_type = st.selectbox("Fuel Type *", FUEL_TYPES)
-        transmission = st.selectbox("Transmission *", TRANSMISSIONS)
-    
-    with col3:
-        # Engine and power details
         if brand in CAR_DATABASE and model in CAR_DATABASE[brand]['models']:
             model_index = CAR_DATABASE[brand]['models'].index(model)
             engine_cc = CAR_DATABASE[brand]['engine_cc'][model_index]
             power_hp = CAR_DATABASE[brand]['power_hp'][model_index]
-            seats = CAR_DATABASE[brand]['seats'][model_index]
-            
             st.text_input("Engine CC", value=f"{engine_cc} cc", disabled=True)
-            st.text_input("Power (HP)", value=f"{power_hp} HP", disabled=True)
+            st.text_input("Power", value=f"{power_hp} HP", disabled=True)
+        else:
+            engine_cc = st.number_input("Engine CC", min_value=600, max_value=5000, value=1200)
+            power_hp = st.number_input("Power (HP)", min_value=40, max_value=500, value=80)
+        
+        if brand in CAR_DATABASE and model in CAR_DATABASE[brand]['models']:
+            seats = CAR_DATABASE[brand]['seats'][model_index]
             st.number_input("Seats", min_value=2, max_value=9, value=seats, disabled=True)
         else:
-            engine_cc = st.number_input("Engine CC *", min_value=600, max_value=5000, value=1200, step=100)
-            power_hp = st.number_input("Power (HP) *", min_value=40, max_value=500, value=80, step=5)
-            seats = st.number_input("Seats *", min_value=2, max_value=9, value=5)
-    
-    # Usage and condition details
-    st.markdown("### 📊 Usage & Condition")
-    
-    col4, col5, col6 = st.columns(3)
-    
-    with col4:
-        mileage = st.number_input("Mileage (km) *", min_value=0, max_value=500000, value=30000, step=1000)
-        color = st.selectbox("Color *", COLORS)
-    
-    with col5:
-        condition = st.selectbox("Car Condition *", CAR_CONDITIONS)
-        owner_type = st.selectbox("Owner Type *", OWNER_TYPES)
-    
-    with col6:
-        insurance_status = st.selectbox("Insurance Status *", INSURANCE_STATUS)
-        registration_city = st.selectbox("Registration City *", CITIES)
+            seats = st.number_input("Seats", min_value=2, max_value=9, value=5)
+        
+        color = st.selectbox("Color", COLORS)
+        condition = st.selectbox("Car Condition", CAR_CONDITIONS)
     
     # Additional details
-    st.markdown("### 📋 Additional Information")
+    st.subheader("📋 Additional Details")
     
-    col7, col8 = st.columns(2)
+    col3, col4 = st.columns(2)
     
-    with col7:
-        service_history = st.selectbox("Service History *", SERVICE_HISTORY)
+    with col3:
+        owner_type = st.selectbox("Owner Type", OWNER_TYPES)
+        insurance_status = st.selectbox("Insurance Status", INSURANCE_STATUS)
     
-    with col8:
-        accident_history = st.selectbox("Accident History *", ACCIDENT_HISTORY)
+    with col4:
+        registration_city = st.selectbox("Registration City", CITIES)
+        service_history = st.radio("Service History", ["Full Service History", "Partial Service History", "No Service History"])
     
-    car_availability = st.selectbox("Car Availability *", CAR_AVAILABILITY)
+    accident_history = st.radio("Accident History", ["No Accidents", "Minor Accidents", "Major Accidents"])
+    car_availability = st.radio("Car Availability", ["Available", "Sold"])
     
     # Generate Car_ID
-    car_id = f"{brand[:3].upper()}_{model[:3].upper()}_{year}_{str(hash(f'{brand}{model}{year}'))[-4:]}"
-    
-    st.info(f"**Generated Car ID:** {car_id}")
+    car_id = f"{brand[:3].upper()}_{model[:3].upper()}_{year}"
     
     # Return all input data
     input_data = {
@@ -269,8 +175,8 @@ def show_complete_manual_input_form():
         'Fuel_Type': fuel_type,
         'Transmission': transmission,
         'Mileage': mileage,
-        'Engine_cc': engine_cc,
-        'Power_HP': power_hp,
+        'Engine_cc': engine_cc if 'engine_cc' in locals() else 1200,
+        'Power_HP': power_hp if 'power_hp' in locals() else 80,
         'Seats': seats,
         'Color': color,
         'Condition': condition,
@@ -281,27 +187,6 @@ def show_complete_manual_input_form():
         'Accident_History': accident_history,
         'Car_Availability': car_availability
     }
-    
-    # Show summary
-    with st.expander("📄 Review Your Entry"):
-        st.write("### Car Details Summary")
-        summary_col1, summary_col2 = st.columns(2)
-        
-        with summary_col1:
-            st.write(f"**Brand:** {brand}")
-            st.write(f"**Model:** {model}")
-            st.write(f"**Year:** {year}")
-            st.write(f"**Fuel Type:** {fuel_type}")
-            st.write(f"**Transmission:** {transmission}")
-            st.write(f"**Mileage:** {mileage:,} km")
-        
-        with summary_col2:
-            st.write(f"**Engine:** {engine_cc} cc")
-            st.write(f"**Power:** {power_hp} HP")
-            st.write(f"**Seats:** {seats}")
-            st.write(f"**Color:** {color}")
-            st.write(f"**Condition:** {condition}")
-            st.write(f"**Owner:** {owner_type}")
     
     return input_data
 
@@ -315,29 +200,38 @@ def get_accurate_live_prices(brand, model):
     prices = []
     sources = []
     
-    # Extended car price database
     car_price_database = {
         'Hyundai': {
             'i20': [450000, 650000, 900000],
             'Creta': [700000, 1100000, 1600000],
             'Verna': [600000, 850000, 1200000],
             'i10': [300000, 450000, 650000],
-            'Venue': [550000, 800000, 1100000],
-            'Aura': [500000, 700000, 950000],
-            'Alcazar': [1200000, 1500000, 1900000],
-            'Tucson': [1800000, 2200000, 2800000]
+            'Venue': [550000, 800000, 1100000]
         },
         'Maruti Suzuki': {
             'Swift': [400000, 550000, 750000],
             'Baleno': [450000, 600000, 800000],
             'Dzire': [350000, 500000, 700000],
             'WagonR': [200000, 350000, 500000],
-            'Brezza': [500000, 700000, 950000],
-            'Ertiga': [450000, 650000, 900000],
-            'Ciaz': [600000, 800000, 1100000],
-            'Alto': [150000, 250000, 400000]
+            'Brezza': [500000, 700000, 950000]
         },
-        # ... (same as before for other brands)
+        'Tata': {
+            'Nexon': [500000, 750000, 1000000],
+            'Harrier': [900000, 1200000, 1600000],
+            'Altroz': [400000, 550000, 750000],
+            'Punch': [350000, 500000, 700000],
+            'Safari': [1000000, 1400000, 1800000]
+        },
+        'Honda': {
+            'City': [600000, 850000, 1200000],
+            'Amaze': [400000, 550000, 750000],
+            'WR-V': [500000, 700000, 950000]
+        },
+        'Toyota': {
+            'Innova Crysta': [1200000, 1600000, 2200000],
+            'Fortuner': [1800000, 2500000, 3500000],
+            'Glanza': [450000, 600000, 800000]
+        }
     }
     
     try:
@@ -351,17 +245,7 @@ def get_accurate_live_prices(brand, model):
             'Hyundai': [300000, 550000, 900000],
             'Tata': [300000, 500000, 850000],
             'Honda': [400000, 650000, 1000000],
-            'Toyota': [600000, 900000, 1500000],
-            'Kia': [450000, 700000, 1100000],
-            'Mahindra': [400000, 650000, 1100000],
-            'BMW': [1500000, 2500000, 4000000],
-            'Mercedes-Benz': [1800000, 3000000, 5000000],
-            'Audi': [1600000, 2700000, 4500000],
-            'Volkswagen': [350000, 550000, 850000],
-            'Skoda': [400000, 600000, 900000],
-            'Renault': [200000, 400000, 650000],
-            'Nissan': [350000, 550000, 850000],
-            'Ford': [350000, 550000, 850000]
+            'Toyota': [600000, 900000, 1500000]
         }
         
         if brand in brand_estimates:
@@ -402,7 +286,6 @@ def show_accurate_live_prices(brand, model):
         source_text = " + ".join(sources)
         st.info(f"**Source:** {source_text} | Used car market averages")
         
-        # Visual price range
         fig = go.Figure()
         
         fig.add_trace(go.Scatter(
@@ -439,7 +322,7 @@ def show_accurate_live_prices(brand, model):
         return None
 
 # ========================================
-# REMAINING FUNCTIONS (Same as before)
+# DATA LOADING FUNCTIONS
 # ========================================
 
 @st.cache_data
@@ -528,7 +411,139 @@ def load_data(file):
     return df
 
 # ========================================
-# MAIN APPLICATION
+# MODEL TRAINING FUNCTIONS
+# ========================================
+
+@st.cache_resource
+def train_model(df):
+    """Train model to predict Price_INR from your data"""
+    current_year = datetime.now().year
+    df_model = df.copy()
+    
+    st.write("🔧 Preparing features for Price_INR prediction...")
+    
+    features_added = []
+    
+    if 'Year' in df_model.columns:
+        df_model['Car_Age'] = current_year - df_model['Year']
+        features_added.append('Car_Age')
+    
+    if 'Brand' in df_model.columns:
+        brand_avg = df_model.groupby('Brand')['Price_INR'].mean()
+        df_model['Brand_Avg_Price'] = df_model['Brand'].map(brand_avg)
+        features_added.append('Brand_Avg_Price')
+    
+    if features_added:
+        st.info(f"✅ Added features: {', '.join(features_added)}")
+    
+    cat_cols = df_model.select_dtypes(include=['object']).columns
+    encoders = {}
+    
+    for col in cat_cols:
+        le = LabelEncoder()
+        df_model[col] = le.fit_transform(df_model[col].astype(str))
+        encoders[col] = le
+
+    X = df_model.drop(columns=['Price_INR'], errors='ignore')
+    y = df_model['Price_INR']
+    
+    st.write(f"🎯 **Target Variable:** Price_INR")
+    st.write(f"📊 **Features used:** {len(X.columns)} columns")
+    
+    X_scaled = StandardScaler().fit_transform(X)
+    
+    param_grid = {
+        'n_estimators': [100, 200],
+        'max_depth': [10, 15, 20],
+        'min_samples_split': [2, 5]
+    }
+    
+    grid = GridSearchCV(
+        RandomForestRegressor(random_state=42, n_jobs=-1), 
+        param_grid, 
+        cv=5,
+        scoring='r2'
+    )
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y, test_size=0.2, random_state=42
+    )
+    
+    with st.spinner('🤖 Training model to predict Price_INR...'):
+        grid.fit(X_train, y_train)
+    
+    best_model = grid.best_estimator_
+    
+    y_pred = best_model.predict(X_test)
+    
+    r2 = r2_score(y_test, y_pred)
+    mae = mean_absolute_error(y_test, y_pred)
+    mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    
+    cv_scores = cross_val_score(best_model, X_scaled, y, cv=5, scoring='r2')
+    importances = pd.Series(best_model.feature_importances_, index=X.columns).sort_values(ascending=False)
+
+    st.success(f"""
+    🎯 **Price_INR Prediction Model Ready!**
+    
+    **Performance Metrics:**
+    - R² Score: {r2:.4f} ({r2*100:.2f}% variance explained)
+    - Mean Absolute Error: ₹{mae:,.0f}
+    - Mean Absolute % Error: {mape:.2f}%
+    - RMSE: ₹{rmse:,.0f}
+    - Cross-val Consistency: {cv_scores.mean()*100:.2f}%
+    
+    **Best Parameters:** {grid.best_params_}
+    """)
+    
+    return {
+        'model': best_model, 
+        'scaler': StandardScaler().fit(X), 
+        'encoders': encoders, 
+        'features': X.columns.tolist(),
+        'r2': r2, 
+        'accuracy': r2 * 100, 
+        'mae': mae,
+        'mape': mape,
+        'rmse': rmse,
+        'cv_mean': cv_scores.mean() * 100,
+        'importances': importances,
+        'best_params': grid.best_params_
+    }
+
+# ========================================
+# PRICE PREDICTION FUNCTION
+# ========================================
+
+def predict_price_inr(model_data, input_data, df_clean):
+    """Predict Price_INR using trained model"""
+    try:
+        input_df = pd.DataFrame([input_data])
+        
+        for col in model_data['encoders']:
+            if col in input_df.columns:
+                try: 
+                    input_df[col] = model_data['encoders'][col].transform([input_data[col]])[0]
+                except:
+                    input_df[col] = 0
+        
+        for col in model_data['features']:
+            if col not in input_df.columns:
+                input_df[col] = 0
+        
+        input_df = input_df[model_data['features']]
+        input_scaled = model_data['scaler'].transform(input_df)
+        predicted_price = model_data['model'].predict(input_scaled)[0]
+        
+        return predicted_price, "AI Model (Your Data)"
+        
+    except Exception as e:
+        st.error(f"❌ Prediction failed: {e}")
+        return None, "Error"
+
+# ========================================
+# MAIN APPLICATION - FIXED VERSION
 # ========================================
 
 def main():
@@ -560,7 +575,7 @@ def main():
     
     input_method = st.radio(
         "Choose how to input car data:",
-        ["📊 Use CSV File", "🔧 Manual Input (All Details)"],
+        ["📊 Use CSV File", "🔧 Manual Input"],
         horizontal=True
     )
     
@@ -615,6 +630,12 @@ def main():
     if page == "Price Prediction":
         st.subheader("💰 Car Price Prediction")
         
+        # Initialize input_data variable
+        input_data = None
+        brand = None
+        model_name = None
+        live_avg_price = None
+        
         if input_method == "📊 Use CSV File" and df_clean.empty:
             st.warning("❌ Please upload CSV file first for predictions")
             return
@@ -626,29 +647,111 @@ def main():
         # Get input data based on method
         if input_method == "📊 Use CSV File":
             st.success("🎯 Model ready! Enter car details below:")
-            # ... (CSV input code as before)
-        else:
-            # MANUAL INPUT MODE
-            st.success("🎯 Enter complete car details below for price prediction")
             
-            input_data = show_complete_manual_input_form()
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.session_state.available_brands:
+                    brand = st.selectbox("Select Brand", st.session_state.available_brands)
+                    st.info(f"📊 {len(st.session_state.available_models.get(brand, []))} models available")
+                else:
+                    st.error("❌ No Brand column found in your data")
+                    return
+                
+                if brand in st.session_state.available_models:
+                    available_models = st.session_state.available_models[brand]
+                    if available_models:
+                        model_name = st.selectbox("Select Model", available_models)
+                    else:
+                        st.error(f"❌ No models found for brand '{brand}'")
+                        return
+                else:
+                    st.error(f"❌ Brand '{brand}' not found")
+                    return
+                
+                if 'Year' in df_clean.columns:
+                    current_year = datetime.now().year
+                    year_data = df_clean[df_clean['Brand'] == brand]
+                    if not year_data.empty:
+                        min_year = int(year_data['Year'].min())
+                        max_year = int(year_data['Year'].max())
+                        default_year = max(min_year, current_year - 3)
+                        year = st.number_input("Manufacturing Year", 
+                                             min_value=min_year, 
+                                             max_value=max_year, 
+                                             value=default_year)
+                    else:
+                        year = st.number_input("Manufacturing Year", 
+                                             min_value=1990, 
+                                             max_value=current_year, 
+                                             value=current_year - 3)
+            
+            with col2:
+                if 'Mileage' in df_clean.columns:
+                    mileage_data = df_clean[df_clean['Brand'] == brand]
+                    if not mileage_data.empty:
+                        avg_mileage = int(mileage_data['Mileage'].mean())
+                        mileage = st.number_input("Mileage (km)", 
+                                                min_value=0, 
+                                                max_value=500000, 
+                                                value=avg_mileage)
+                    else:
+                        mileage = st.number_input("Mileage (km)", value=30000)
+                
+                if 'Fuel_Type' in df_clean.columns:
+                    fuel_options = sorted(df_clean['Fuel_Type'].astype(str).unique().tolist())
+                    fuel = st.selectbox("Fuel Type", fuel_options)
+                else:
+                    fuel = st.selectbox("Fuel Type", FUEL_TYPES)
+                
+                if 'Transmission' in df_clean.columns:
+                    transmission_options = sorted(df_clean['Transmission'].astype(str).unique().tolist())
+                    transmission = st.selectbox("Transmission", transmission_options)
+                else:
+                    transmission = st.selectbox("Transmission", TRANSMISSIONS)
+                
+                city = st.selectbox("City", CITIES)
+            
+            input_data = {
+                'Brand': brand, 
+                'Model': model_name, 
+                'Year': year,
+                'Mileage': mileage,
+                'Fuel_Type': fuel,
+                'Transmission': transmission,
+                'City': city
+            }
+            
+        else:  # Manual Input
+            st.success("🎯 Enter complete car details below for price prediction")
+            input_data = show_manual_input_form()
             brand = input_data['Brand']
             model_name = input_data['Model']
-            
-            # Show live prices for manual input
-            if brand and model_name:
-                live_avg_price = show_accurate_live_prices(brand, model_name)
+        
+        # Show live prices
+        if brand and model_name:
+            live_avg_price = show_accurate_live_prices(brand, model_name)
         
         # PREDICTION BUTTON
         if st.button("🎯 Predict Car Price", type="primary", use_container_width=True):
+            if input_data is None:
+                st.error("❌ Please enter car details first")
+                return
+                
             with st.spinner("🔍 Calculating best price..."):
                 
                 if input_method == "📊 Use CSV File" and st.session_state.model_ok:
                     # AI Prediction for CSV mode
                     final_price, source = predict_price_inr(st.session_state.model, input_data, df_clean)
+                    
+                    if final_price is None:
+                        st.error("❌ Prediction failed. Please try again.")
+                        return
                 else:
-                    # For manual input, use market prices with adjustments
-                    if 'live_avg_price' in locals() and live_avg_price:
+                    # For manual input or when model not available
+                    current_year = datetime.now().year
+                    
+                    if 'live_avg_price' in locals() and live_avg_price is not None:
                         base_price = live_avg_price
                         
                         # Adjust based on condition
@@ -657,8 +760,7 @@ def main():
                             "Very Good": 1.1,
                             "Good": 1.0,
                             "Fair": 0.8,
-                            "Poor": 0.6,
-                            "Needs Repair": 0.5
+                            "Poor": 0.6
                         }
                         
                         # Adjust based on mileage
@@ -672,12 +774,12 @@ def main():
                             "Fourth & Above": 0.8
                         }
                         
-                        final_price = base_price * condition_multiplier.get(input_data['Condition'], 1.0) * mileage_factor * owner_multiplier.get(input_data['Owner_Type'], 1.0)
+                        final_price = base_price * condition_multiplier.get(input_data.get('Condition', 'Good'), 1.0) * mileage_factor * owner_multiplier.get(input_data.get('Owner_Type', 'First'), 1.0)
                         source = "Market Adjusted"
                     else:
                         # Fallback calculation
                         base_price = 500000
-                        age_factor = max(0.3, 1 - (2024 - input_data['Year']) * 0.1)
+                        age_factor = max(0.3, 1 - (current_year - input_data['Year']) * 0.1)
                         mileage_factor = max(0.5, 1 - (input_data['Mileage'] / 200000))
                         final_price = base_price * age_factor * mileage_factor
                         source = "Estimated"
@@ -685,7 +787,74 @@ def main():
                 # Display results
                 st.success("💎 **Price Analysis**")
                 
-                # ... (rest of the display code as before)
+                if live_avg_price is not None:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Predicted Price", f"₹{final_price:,.0f}", f"Based on {source}")
+                    
+                    with col2:
+                        st.metric("Market Average", f"₹{live_avg_price:,.0f}", "Current Market")
+                    
+                    with col3:
+                        if abs(final_price - live_avg_price) < live_avg_price * 0.1:
+                            assessment = "Good Match ✓"
+                        elif final_price < live_avg_price:
+                            assessment = "Below Market"
+                        else:
+                            assessment = "Above Market"
+                        st.metric("Assessment", assessment)
+                    
+                else:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.metric("Predicted Price", f"₹{final_price:,.0f}", f"Based on {source}")
+                    
+                    with col2:
+                        min_range = final_price * 0.85
+                        max_range = final_price * 1.15
+                        st.metric("Expected Range", f"₹{min_range:,.0f} - ₹{max_range:,.0f}")
+                
+                # Advice section
+                st.subheader("💡 Smart Buying/Selling Advice")
+                
+                advice_col1, advice_col2 = st.columns(2)
+                
+                with advice_col1:
+                    st.info("""
+                    **🛒 For Buyers:**
+                    • Verify vehicle service history
+                    • Get professional inspection
+                    • Check for accident history
+                    • Test drive thoroughly
+                    • Negotiate based on condition
+                    """)
+                
+                with advice_col2:
+                    st.info("""
+                    **🏷️ For Sellers:**
+                    • Highlight maintenance records
+                    • Clean and detail the car
+                    • Fix minor issues
+                    • Provide clear photos
+                    • Be open to reasonable offers
+                    """)
+                
+                st.balloons()
+                
+                # Save to prediction history
+                prediction_record = {
+                    'Brand': brand,
+                    'Model': model_name, 
+                    'Year': input_data.get('Year', 'N/A'),
+                    'Predicted_Price': f"₹{final_price:,.0f}",
+                    'Source': source,
+                    'Input_Method': input_method,
+                    'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
+                
+                st.session_state.predictions.append(prediction_record)
 
 if __name__ == "__main__":
     main()
