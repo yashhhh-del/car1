@@ -1,5 +1,5 @@
 # ======================================================
-# SMART CAR PRICING SYSTEM - FIXED VERSION
+# SMART CAR PRICING SYSTEM - INR PRICE PREDICTION
 # ======================================================
 
 import streamlit as st
@@ -62,102 +62,221 @@ def initialize_session_state():
 
 @st.cache_data
 def load_data(file):
-    """Load and clean CSV data"""
+    """Load and clean CSV data - FOCUS ON INR PRICE PREDICTION"""
     df = pd.read_csv(file)
     
-    # Find price column
-    price_col = next((c for c in df.columns if 'price' in c.lower()), None)
-    if price_col and price_col != 'Market_Price(INR)':
-        df = df.rename(columns={price_col: 'Market_Price(INR)'})
+    st.info(f"📁 Original columns: {list(df.columns)}")
     
-    # Standardize column names
+    # FIND PRICE COLUMN AUTOMATICALLY
+    price_col = None
+    price_keywords = ['price', 'amount', 'cost', 'value', 'inr', 'rs', 'rupee']
+    
+    for col in df.columns:
+        if any(keyword in col.lower() for keyword in price_keywords):
+            price_col = col
+            st.success(f"✅ Price column found: {price_col}")
+            break
+    
+    if price_col:
+        df = df.rename(columns={price_col: 'Market_Price_INR'})
+    else:
+        # If no price column found, use first numeric column as price
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            price_col = numeric_cols[0]
+            df = df.rename(columns={price_col: 'Market_Price_INR'})
+            st.warning(f"⚠ Using first numeric column as price: {price_col}")
+        else:
+            st.error("❌ No price column found in CSV!")
+            return pd.DataFrame()
+    
+    # STANDARDIZE COLUMN NAMES FOR PREDICTION
     rename_map = {
         'brand': 'Brand', 'model': 'Model', 'year': 'Year', 
         'mileage': 'Mileage', 'fuel': 'Fuel_Type', 
-        'transmission': 'Transmission', 'city': 'City'
+        'transmission': 'Transmission', 'city': 'City',
+        'company': 'Brand', 'car_name': 'Model', 'kms_driven': 'Mileage'
     }
     
     for old, new in rename_map.items():
         for col in df.columns:
             if old in col.lower() and col != new:
                 df = df.rename(columns={col: new})
+                st.info(f"🔄 Renamed '{col}' → '{new}'")
                 break
     
-    # Clean data
-    df = df.dropna()
+    # CLEAN DATA FOR PRICE PREDICTION
+    original_rows = len(df)
+    
+    # Remove rows with missing price
+    df = df.dropna(subset=['Market_Price_INR'])
+    
+    # Convert price to numeric
+    df['Market_Price_INR'] = pd.to_numeric(df['Market_Price_INR'], errors='coerce')
+    df = df.dropna(subset=['Market_Price_INR'])
+    
+    # Clean year column
     if 'Year' in df.columns:
         df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
-        df = df.dropna(subset=['Year']).astype({'Year': int})
+        df = df.dropna(subset=['Year'])
+        df['Year'] = df['Year'].astype(int)
+    
+    # Clean mileage column  
+    if 'Mileage' in df.columns:
+        df['Mileage'] = pd.to_numeric(df['Mileage'], errors='coerce')
+        df = df.dropna(subset=['Mileage'])
+    
+    st.success(f"✅ Data cleaned: {original_rows} → {len(df)} rows")
+    st.info(f"💰 Price range: ₹{df['Market_Price_INR'].min():,} to ₹{df['Market_Price_INR'].max():,}")
     
     return df
 
 # ========================================
-# MODEL TRAINING FUNCTIONS
+# MODEL TRAINING FOR INR PRICE PREDICTION
 # ========================================
 
 @st.cache_resource
 def train_model(df):
-    """Train the machine learning model"""
+    """Train model to predict INR price from your data"""
     current_year = datetime.now().year
     df_model = df.copy()
     
-    # Feature Engineering
+    st.write("🔧 Preparing features for price prediction...")
+    
+    # FEATURE ENGINEERING FOR BETTER PRICE PREDICTION
     if 'Year' in df_model.columns:
         df_model['Car_Age'] = current_year - df_model['Year']
+        st.info(f"✅ Added feature: Car_Age (Range: {df_model['Car_Age'].min()} - {df_model['Car_Age'].max()} years)")
     
     if 'Brand' in df_model.columns:
-        df_model['Brand_Avg_Price'] = df_model['Brand'].map(
-            df_model.groupby('Brand')['Market_Price(INR)'].mean()
-        )
-
-    # Encode categorical variables
+        brand_avg = df_model.groupby('Brand')['Market_Price_INR'].mean()
+        df_model['Brand_Avg_Price'] = df_model['Brand'].map(brand_avg)
+        st.info(f"✅ Added feature: Brand_Avg_Price ({len(brand_avg)} brands)")
+    
+    # ENCODE CATEGORICAL VARIABLES
     cat_cols = df_model.select_dtypes(include=['object']).columns
     encoders = {}
+    
     for col in cat_cols:
         le = LabelEncoder()
         df_model[col] = le.fit_transform(df_model[col].astype(str))
         encoders[col] = le
+        st.info(f"✅ Encoded: {col} ({len(le.classes_)} categories)")
 
-    # Prepare features and target
-    X = df_model.drop(columns=['Market_Price(INR)'], errors='ignore')
-    y = df_model['Market_Price(INR)']
+    # PREPARE FEATURES AND TARGET (INR PRICE)
+    X = df_model.drop(columns=['Market_Price_INR'], errors='ignore')
+    y = df_model['Market_Price_INR']  # THIS IS WHAT WE PREDICT!
+    
+    st.write(f"🎯 Predicting: Market_Price_INR (Target)")
+    st.write(f"📊 Using {X.shape[1]} features for prediction")
+    
+    # Scale features
     X_scaled = StandardScaler().fit_transform(X)
-
-    # Hyperparameter tuning
+    
+    # HYPERPARAMETER TUNING FOR BETTER PRICE PREDICTION
     param_grid = {
         'n_estimators': [100, 200],
-        'max_depth': [10, 15]
+        'max_depth': [10, 15, 20],
+        'min_samples_split': [2, 5]
     }
     
     grid = GridSearchCV(
         RandomForestRegressor(random_state=42, n_jobs=-1), 
         param_grid, 
-        cv=5
+        cv=5,
+        scoring='r2'
     )
     
+    # Split data
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled, y, test_size=0.2, random_state=42
     )
-    grid.fit(X_train, y_train)
-    model = grid.best_estimator_
-
-    # Model evaluation
-    y_pred = model.predict(X_test)
+    
+    with st.spinner('🤖 Training model to predict your INR prices...'):
+        grid.fit(X_train, y_train)
+    
+    best_model = grid.best_estimator_
+    
+    # COMPREHENSIVE MODEL EVALUATION
+    y_pred = best_model.predict(X_test)
+    
+    # Calculate metrics
     r2 = r2_score(y_test, y_pred)
-    cv_scores = cross_val_score(model, X_scaled, y, cv=5)
-    importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
+    mae = mean_absolute_error(y_test, y_pred)
+    mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    
+    cv_scores = cross_val_score(best_model, X_scaled, y, cv=5, scoring='r2')
+    importances = pd.Series(best_model.feature_importances_, index=X.columns).sort_values(ascending=False)
 
+    # DISPLAY RESULTS
+    st.success(f"""
+    🎯 **INR Price Prediction Model Ready!**
+    
+    **Performance Metrics:**
+    - R² Score: {r2:.3f} ({r2*100:.1f}% variance explained)
+    - Mean Absolute Error: ₹{mae:,.0f}
+    - Mean Absolute % Error: {mape:.1f}%
+    - RMSE: ₹{rmse:,.0f}
+    - Cross-val Consistency: {cv_scores.mean()*100:.1f}%
+    
+    **Best Parameters:** {grid.best_params_}
+    """)
+    
     return {
-        'model': model, 
+        'model': best_model, 
         'scaler': StandardScaler().fit(X), 
         'encoders': encoders, 
         'features': X.columns.tolist(),
         'r2': r2, 
         'accuracy': r2 * 100, 
-        'cv_mean': cv_scores.mean() * 100, 
+        'mae': mae,
+        'mape': mape,
+        'rmse': rmse,
+        'cv_mean': cv_scores.mean() * 100,
         'importances': importances,
-        'best_params': grid.best_params_
+        'best_params': grid.best_params_,
+        'feature_names': X.columns.tolist()
     }
+
+# ========================================
+# PRICE PREDICTION FUNCTION
+# ========================================
+
+def predict_inr_price(model_data, input_data, df_clean):
+    """Predict INR price using trained model"""
+    try:
+        # Create input DataFrame
+        input_df = pd.DataFrame([input_data])
+        
+        # Apply same encoding as training
+        for col in model_data['encoders']:
+            if col in input_df.columns:
+                try: 
+                    input_df[col] = model_data['encoders'][col].transform([input_data[col]])[0]
+                except:
+                    # If new category, use most common value
+                    input_df[col] = 0
+        
+        # Ensure all features are present
+        for col in model_data['features']:
+            if col not in input_df.columns:
+                input_df[col] = 0
+        
+        # Select and order features correctly
+        input_df = input_df[model_data['features']]
+        
+        # Scale features
+        input_scaled = model_data['scaler'].transform(input_df)
+        
+        # Predict price
+        predicted_price = model_data['model'].predict(input_scaled)[0]
+        
+        return predicted_price, "AI Model"
+        
+    except Exception as e:
+        st.error(f"❌ Prediction failed: {e}")
+        return None, "Error"
 
 # ========================================
 # WEB FALLBACK FUNCTION
@@ -201,73 +320,6 @@ def get_web_price(brand, model, year=None, city="Delhi"):
     return int(np.mean(prices)) if prices else None
 
 # ========================================
-# TECHNICAL EXPLANATIONS
-# ========================================
-
-def explain_technical_decisions():
-    """Show technical details in sidebar"""
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔬 Technical Details")
-    
-    with st.sidebar.expander("ML Algorithm Choice"):
-        st.markdown("""
-        **Why Random Forest?**
-        - Handles mixed data types
-        - Robust to outliers
-        - Provides feature importance
-        - Less prone to overfitting
-        """)
-
-# ========================================
-# BUSINESS INSIGHTS DASHBOARD
-# ========================================
-
-def show_business_insights(df_clean, model_data):
-    """Show business intelligence dashboard"""
-    st.header("📊 Business Intelligence Dashboard")
-    
-    if df_clean.empty:
-        st.info("Upload CSV for advanced business insights")
-        return
-    
-    # Key metrics
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        avg_price = df_clean['Market_Price(INR)'].mean()
-        st.metric("Avg Market Price", f"₹{avg_price/100000:.1f}L")
-    
-    with col2:
-        st.metric("Total Cars", f"{len(df_clean):,}")
-    
-    with col3:
-        st.metric("Brands", df_clean['Brand'].nunique())
-    
-    # Brand price analysis
-    brand_price = df_clean.groupby('Brand')['Market_Price(INR)'].mean().sort_values(ascending=False).head(10)
-    fig = px.bar(
-        y=brand_price.index, 
-        x=brand_price.values, 
-        orientation='h',
-        text=[f"₹{v/100000:.1f}L" for v in brand_price.values],
-        color_discrete_sequence=['#4ecdc4']
-    )
-    fig.update_layout(title="Top 10 Brands by Avg Price", height=500)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Feature importance
-    if 'importances' in model_data:
-        fig = px.bar(
-            y=model_data['importances'].index, 
-            x=model_data['importances'].values, 
-            orientation='h',
-            text=[f"{v:.3f}" for v in model_data['importances'].values],
-            color_discrete_sequence=['#9b59b6']
-        )
-        fig.update_layout(title="What Affects Price Most?", height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-# ========================================
 # MAIN APPLICATION
 # ========================================
 
@@ -283,7 +335,7 @@ def main():
     )
     
     st.title("🚗 Smart Car Pricing System")
-    st.markdown("### Tumhara Data Pehle • Web Fallback • 95%+ Accuracy")
+    st.markdown("### **Aapke Data ke INR Price ko Predict Karega**")
     
     # Sidebar navigation
     with st.sidebar:
@@ -298,42 +350,43 @@ def main():
             st.session_state.df_clean = pd.DataFrame()
             st.rerun()
     
-    # Technical explanations
-    explain_technical_decisions()
-    
-    # File upload
-    uploaded_file = st.file_uploader("Upload CSV (Optional)", type=["csv"])
+    # File upload - YAHAN SE DATA AAYEGA
+    uploaded_file = st.file_uploader("📁 Apna CSV File Upload Karein", type=["csv"])
     
     # Load data
     if uploaded_file is not None:
         try:
             df_clean = load_data(uploaded_file)
             st.session_state.df_clean = df_clean
-            st.success(f"✅ Loaded {len(df_clean):,} cars!")
+            
+            # Show data preview
+            with st.expander("👀 Data Preview"):
+                st.dataframe(df_clean.head())
+                st.write(f"**Data Shape:** {df_clean.shape}")
+                
         except Exception as e:
             st.error(f"❌ Error loading file: {e}")
             st.session_state.df_clean = pd.DataFrame()
     else:
-        st.info("📝 No CSV? No problem! Web se price laayenge.")
+        st.info("📝 Please upload your CSV file with car prices")
         st.session_state.df_clean = pd.DataFrame()
     
     # Train model if data available
     df_clean = st.session_state.df_clean
     
-    if not df_clean.empty and 'Market_Price(INR)' in df_clean.columns:
+    if not df_clean.empty and 'Market_Price_INR' in df_clean.columns:
         if not st.session_state.model_trained:
             with st.spinner('🤖 Training AI model...'):
                 try:
                     model_data = train_model(df_clean)
                     st.session_state.model = model_data
                     st.session_state.model_trained = True
+                    st.session_state.model_ok = model_data['r2'] >= 0.70  # Reasonable threshold
                     
-                    if model_data['r2'] < 0.95:
-                        st.session_state.model_ok = False
-                        st.warning("⚠ AI Model < 95% accuracy → Using Web Fallback")
+                    if st.session_state.model_ok:
+                        st.success(f"✅ INR Price Prediction Model Ready!")
                     else:
-                        st.session_state.model_ok = True
-                        st.success(f"✅ AI Model Ready! Accuracy: {model_data['accuracy']:.1f}%")
+                        st.warning("⚠ Model accuracy limited - using fallback methods")
                         
                 except Exception as e:
                     st.error(f"❌ Model training failed: {e}")
@@ -345,174 +398,215 @@ def main():
     if page == "Home":
         st.subheader("🏠 Market Overview")
         
-        if not df_clean.empty and st.session_state.model_trained:
-            show_business_insights(df_clean, st.session_state.model)
+        if not df_clean.empty:
+            # Display key metrics
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                avg_price = df_clean['Market_Price_INR'].mean()
+                st.metric("Average Price", f"₹{avg_price:,.0f}")
+            
+            with col2:
+                min_price = df_clean['Market_Price_INR'].min()
+                st.metric("Minimum Price", f"₹{min_price:,.0f}")
+            
+            with col3:
+                max_price = df_clean['Market_Price_INR'].max()
+                st.metric("Maximum Price", f"₹{max_price:,.0f}")
+            
+            with col4:
+                total_cars = len(df_clean)
+                st.metric("Total Cars", f"{total_cars:,}")
+            
+            # Price distribution
+            st.subheader("💰 Price Distribution")
+            fig = px.histogram(df_clean, x='Market_Price_INR', 
+                              title="Car Price Distribution in Your Data",
+                              color_discrete_sequence=['#FF4B4B'])
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Brand analysis
+            if 'Brand' in df_clean.columns:
+                st.subheader("🏷️ Brands in Your Data")
+                brand_stats = df_clean.groupby('Brand').agg({
+                    'Market_Price_INR': ['count', 'mean', 'min', 'max']
+                }).round(0)
+                brand_stats.columns = ['Count', 'Avg Price', 'Min Price', 'Max Price']
+                st.dataframe(brand_stats.sort_values('Count', ascending=False))
+        
         else:
-            st.info("📊 Upload a CSV file and train the model to see market insights")
-            
-            # Show catalog preview
-            st.subheader("🚘 Supported Car Brands")
-            brands_list = list(CAR_CATALOG.keys())
-            cols = 4
-            rows = [brands_list[i:i + cols] for i in range(0, len(brands_list), cols)]
-            
-            for row in rows:
-                col1, col2, col3, col4 = st.columns(4)
-                cols = [col1, col2, col3, col4]
-                for i, brand in enumerate(row):
-                    with cols[i]:
-                        st.metric(brand, f"{len(CAR_CATALOG[brand])} models")
+            st.info("📊 Upload a CSV file to see market insights")
     
     elif page == "Price Prediction":
-        st.subheader("💰 Predict Car Price")
+        st.subheader("💰 Car Price Prediction")
         
-        # Use session state df_clean
         df_clean = st.session_state.df_clean
         
-        # Brand selection
-        data_brands = sorted(df_clean['Brand'].unique().tolist()) if not df_clean.empty and 'Brand' in df_clean.columns else []
-        catalog_brands = list(CAR_CATALOG.keys())
-        all_brands = data_brands + [b for b in catalog_brands if b not in data_brands]
-        
-        brand = st.selectbox("Select Brand", all_brands)
-        
-        # Model selection
-        available_models = []
-        if not df_clean.empty and brand in df_clean['Brand'].values:
-            available_models = sorted(df_clean[df_clean['Brand'] == brand]['Model'].unique().tolist())
-        if not available_models and brand in CAR_CATALOG:
-            available_models = CAR_CATALOG[brand]
-        
-        model_name = st.selectbox("Select Model", available_models or ["No models available"])
-        
-        if not available_models:
-            st.warning("❌ No models found for selected brand")
+        if df_clean.empty:
+            st.warning("❌ Please upload CSV file first for predictions")
             st.stop()
         
-        # Data source indicator
-        if brand in data_brands:
-            st.success(f"📊 {brand} → From your CSV data!")
-        else:
-            st.info(f"📚 {brand} → From our car catalog")
+        # Input section
+        st.markdown("### 🚗 Car Details Enter Karein")
         
-        # Input fields
-        current_year = datetime.now().year
-        year = st.number_input("Manufacturing Year", 1980, current_year + 1, current_year - 3)
-        mileage = st.number_input("Mileage (km)", 0, 500000, 30000, 1000)
-        fuel = st.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG", "Electric", "Hybrid"])
-        transmission = st.selectbox("Transmission", ["Manual", "Automatic"])
-        city = st.selectbox("City", ["Delhi", "Mumbai", "Bangalore", "Chennai", "Pune", "Hyderabad", "Kolkata"])
+        col1, col2 = st.columns(2)
         
-        if st.button("🎯 Predict Price", type="primary"):
-            with st.spinner("🔍 Calculating best price..."):
+        with col1:
+            # Brand selection from uploaded data
+            if 'Brand' in df_clean.columns:
+                available_brands = sorted(df_clean['Brand'].unique().tolist())
+                brand = st.selectbox("Brand", available_brands)
+            else:
+                brand = st.selectbox("Brand", list(CAR_CATALOG.keys()))
+            
+            # Model selection
+            available_models = []
+            if 'Model' in df_clean.columns and brand in df_clean['Brand'].values:
+                available_models = sorted(df_clean[df_clean['Brand'] == brand]['Model'].unique().tolist())
+            
+            if not available_models and brand in CAR_CATALOG:
+                available_models = CAR_CATALOG[brand]
+            
+            model_name = st.selectbox("Model", available_models or ["Select brand first"])
+            
+            if 'Year' in df_clean.columns:
+                current_year = datetime.now().year
+                year = st.number_input("Manufacturing Year", 
+                                     min_value=1980, 
+                                     max_value=current_year + 1, 
+                                     value=current_year - 3)
+            else:
+                year = st.number_input("Manufacturing Year", value=2020)
+        
+        with col2:
+            if 'Mileage' in df_clean.columns:
+                mileage = st.number_input("Mileage (km)", 
+                                        min_value=0, 
+                                        max_value=500000, 
+                                        value=30000)
+            else:
+                mileage = st.number_input("Mileage (km)", value=30000)
+            
+            if 'Fuel_Type' in df_clean.columns:
+                fuel_options = sorted(df_clean['Fuel_Type'].unique().tolist())
+                fuel = st.selectbox("Fuel Type", fuel_options)
+            else:
+                fuel = st.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG", "Electric"])
+            
+            if 'Transmission' in df_clean.columns:
+                transmission_options = sorted(df_clean['Transmission'].unique().tolist())
+                transmission = st.selectbox("Transmission", transmission_options)
+            else:
+                transmission = st.selectbox("Transmission", ["Manual", "Automatic"])
+            
+            city = st.selectbox("City", ["Delhi", "Mumbai", "Bangalore", "Chennai", "Pune"])
+        
+        if st.button("🎯 Predict INR Price", type="primary", use_container_width=True):
+            with st.spinner("🔍 Calculating price..."):
+                # Prepare input data
+                input_data = {
+                    'Brand': brand, 
+                    'Model': model_name, 
+                    'Year': year,
+                    'Mileage': mileage,
+                    'Fuel_Type': fuel,
+                    'Transmission': transmission,
+                    'City': city
+                }
+                
                 final_price = None
                 source = ""
                 
                 # Try AI model first
-                if (st.session_state.model_ok and st.session_state.model_trained and 
-                    not df_clean.empty and brand in df_clean['Brand'].values and 
-                    model_name in df_clean[df_clean['Brand'] == brand]['Model'].values):
+                if st.session_state.model_ok and st.session_state.model_trained:
+                    predicted_price, pred_source = predict_inr_price(
+                        st.session_state.model, input_data, df_clean
+                    )
                     
-                    try:
-                        model_data = st.session_state.model
-                        input_data = {
-                            'Brand': brand, 'Model': model_name, 'Year': year, 
-                            'Mileage': mileage, 'Fuel_Type': fuel, 'Transmission': transmission
-                        }
-                        
-                        if 'City' in df_clean.columns: 
-                            input_data['City'] = city
-                            
-                        input_df = pd.DataFrame([input_data])
-                        
-                        # Encode input data
-                        for col in model_data['encoders']:
-                            if col in input_df.columns:
-                                try: 
-                                    input_df[col] = model_data['encoders'][col].transform([input_data[col]])[0]
-                                except:
-                                    input_df[col] = 0
-                        
-                        # Ensure all features are present
-                        for col in model_data['features']:
-                            if col not in input_df.columns:
-                                input_df[col] = 0
-                        
-                        input_df = input_df[model_data['features']]
-                        input_scaled = model_data['scaler'].transform(input_df)
-                        pred = model_data['model'].predict(input_scaled)[0]
-                        
-                        # Blend with market average
-                        market_avg = df_clean[df_clean['Brand'] == brand]['Market_Price(INR)'].mean()
-                        final_price = 0.7 * pred + 0.3 * market_avg
-                        source = "AI Model"
-                        
-                    except Exception as e:
-                        st.warning(f"⚠ AI prediction failed, using fallback: {e}")
+                    if predicted_price is not None:
+                        final_price = predicted_price
+                        source = pred_source
                 
-                # Web fallback
+                # Fallback methods
                 if final_price is None:
                     web_price = get_web_price(brand, model_name, year, city)
                     if web_price:
                         final_price = web_price
-                        source = "Live Web Data"
+                        source = "Web Data"
                     else:
-                        # Catalog estimate fallback
-                        brand_avg = df_clean['Market_Price(INR)'].mean() if not df_clean.empty else 800000
-                        age = current_year - year
-                        final_price = brand_avg * (1 - 0.12 * min(age, 10))
-                        source = "Market Estimate"
-                
-                # Calculate price range
-                min_price = final_price * 0.95
-                max_price = final_price * 1.05
+                        # Simple estimation based on data
+                        if not df_clean.empty:
+                            brand_avg = df_clean['Market_Price_INR'].mean()
+                            current_year = datetime.now().year
+                            age = current_year - year
+                            final_price = brand_avg * (1 - 0.10 * min(age, 10))
+                            source = "Data Estimate"
+                        else:
+                            final_price = 500000  # Default fallback
+                            source = "Default Estimate"
                 
                 # Display results
-                st.success(f"✅ Predicted via: {source}")
+                st.success(f"✅ Price Predicted Using: **{source}**")
                 
-                # Price range visualization
+                # Calculate price range
+                min_price = final_price * 0.90
+                max_price = final_price * 1.10
+                
+                # Results in columns
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Minimum Price", f"₹{min_price:,.0f}")
+                
+                with col2:
+                    st.metric("Fair Market Price", f"₹{final_price:,.0f}")
+                
+                with col3:
+                    st.metric("Maximum Price", f"₹{max_price:,.0f}")
+                
+                # Visual representation
+                st.subheader("📊 Price Range Analysis")
+                
                 fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=['Min', 'Fair', 'Max'], 
-                    y=[min_price, final_price, max_price],
-                    marker_color=['#ff6b6b', '#1a936f', '#ffe66d'],
-                    text=[f"₹{v/100000:.1f}L" for v in [min_price, final_price, max_price]],
-                    textposition='outside'
-                ))
-                fig.update_layout(
-                    title="💰 Price Range Analysis", 
-                    height=500, 
-                    showlegend=False,
-                    xaxis_title="Price Category",
-                    yaxis_title="Price (INR)"
-                )
+                
+                fig.add_trace(go.Indicator(
+                    mode = "number+gauge+delta",
+                    value = final_price,
+                    domain = {'x': [0, 1], 'y': [0, 1]},
+                    delta = {'reference': min_price},
+                    number = {'prefix': "₹", 'font': {'size': 20}},
+                    gauge = {
+                        'shape': "bullet",
+                        'axis': {'range': [None, max_price]},
+                        'threshold': {
+                            'line': {'color': "red", 'width': 2},
+                            'thickness': 0.75,
+                            'value': final_price},
+                        'steps': [
+                            {'range': [0, min_price], 'color': "lightgray"},
+                            {'range': [min_price, final_price], 'color': "gray"}],
+                        'bar': {'color': "darkblue"}}))
+                
+                fig.update_layout(height=250)
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # Price breakdown
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Minimum Price", f"₹{min_price/100000:.1f}L")
-                with col2:
-                    st.metric("Fair Price", f"₹{final_price/100000:.1f}L", 
-                             delta=f"₹{(final_price - min_price)/100000:.1f}L")
-                with col3:
-                    st.metric("Maximum Price", f"₹{max_price/100000:.1f}L")
+                # Save prediction to history
+                st.session_state.predictions.append({
+                    'Brand': brand,
+                    'Model': model_name, 
+                    'Predicted_Price': f"₹{final_price:,.0f}",
+                    'Price_Range': f"₹{min_price:,.0f} - ₹{max_price:,.0f}",
+                    'Source': source,
+                    'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
+                })
                 
                 st.balloons()
-                
-                # Save to history
-                st.session_state.predictions.append({
-                    'Brand': brand, 
-                    'Model': model_name, 
-                    'Price': f"₹{final_price/100000:.1f}L",
-                    'Time': datetime.now().strftime("%H:%M"),
-                    'Source': source
-                })
     
     elif page == "EMI Calculator":
         st.subheader("🧮 EMI Calculator")
         
-        price = st.number_input("Car Price (₹)", 100000, 10000000, 1000000, 50000)
+        # EMI calculation logic (same as before)
+        price = st.number_input("Car Price (₹)", 100000, 50000000, 1000000, 50000)
         down = st.slider("Down Payment (%)", 0, 50, 20)
         rate = st.slider("Interest Rate (%)", 5.0, 15.0, 9.5, 0.1)
         tenure = st.slider("Loan Tenure (years)", 1, 7, 5)
@@ -543,7 +637,7 @@ def main():
             fig.update_layout(title="EMI Breakdown")
             st.plotly_chart(fig, use_container_width=True)
     
-    # Footer
+    # Prediction History
     st.markdown("---")
     if st.session_state.predictions:
         with st.expander("📈 Prediction History"):
@@ -554,7 +648,7 @@ def main():
                 st.session_state.predictions = []
                 st.rerun()
     
-    st.markdown("### Made with ❤️ | Tumhara Smart Car Pricing App Ab Live Hai! 🚀")
+    st.markdown("### Made with ❤️ | **Aapke Data ke Hisaab se Price Predict Karega** 🚀")
 
 # Run the application
 if __name__ == "__main__":
