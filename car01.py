@@ -1,5 +1,5 @@
 # ======================================================
-# SMART CAR PRICING SYSTEM - PRICE_INR PREDICTION
+# SMART CAR PRICING SYSTEM - WITH BRAND DATA DISPLAY
 # ======================================================
 
 import streamlit as st
@@ -38,9 +38,11 @@ def initialize_session_state():
         st.session_state.available_brands = []
     if 'available_models' not in st.session_state:
         st.session_state.available_models = {}
+    if 'brand_data' not in st.session_state:
+        st.session_state.brand_data = {}
 
 # ========================================
-# DATA LOADING FUNCTIONS - PRICE_INR FOCUS
+# DATA LOADING FUNCTIONS
 # ========================================
 
 @st.cache_data
@@ -125,16 +127,126 @@ def load_data(file):
         
         # Store models for each brand
         st.session_state.available_models = {}
+        st.session_state.brand_data = {}
+        
         for brand in st.session_state.available_brands:
-            models = sorted(df[df['Brand'] == brand]['Model'].astype(str).unique().tolist())
+            brand_df = df[df['Brand'] == brand]
+            models = sorted(brand_df['Model'].astype(str).unique().tolist())
             st.session_state.available_models[brand] = models
+            
+            # Store complete brand data for display
+            st.session_state.brand_data[brand] = brand_df
     
     st.success(f"🎯 Final dataset: {len(df)} cars, Price_INR range: ₹{df['Price_INR'].min():,} to ₹{df['Price_INR'].max():,}")
     
     return df
 
 # ========================================
-# MODEL TRAINING FOR Price_INR PREDICTION
+# BRAND DATA DISPLAY FUNCTION
+# ========================================
+
+def show_brand_data(brand):
+    """Show actual data for the selected brand from CSV"""
+    if brand not in st.session_state.brand_data:
+        return
+    
+    brand_df = st.session_state.brand_data[brand]
+    
+    st.subheader(f"📊 Actual Data for {brand} from Your CSV")
+    
+    # Key statistics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_cars = len(brand_df)
+        st.metric("Total Cars", total_cars)
+    
+    with col2:
+        avg_price = brand_df['Price_INR'].mean()
+        st.metric("Avg Price", f"₹{avg_price:,.0f}")
+    
+    with col3:
+        min_price = brand_df['Price_INR'].min()
+        st.metric("Min Price", f"₹{min_price:,.0f}")
+    
+    with col4:
+        max_price = brand_df['Price_INR'].max()
+        st.metric("Max Price", f"₹{max_price:,.0f}")
+    
+    # Show data table
+    with st.expander(f"👀 View {brand} Cars Data", expanded=False):
+        # Select important columns to display
+        display_columns = ['Model', 'Price_INR']
+        if 'Year' in brand_df.columns:
+            display_columns.append('Year')
+        if 'Mileage' in brand_df.columns:
+            display_columns.append('Mileage')
+        if 'Fuel_Type' in brand_df.columns:
+            display_columns.append('Fuel_Type')
+        if 'Transmission' in brand_df.columns:
+            display_columns.append('Transmission')
+        
+        display_df = brand_df[display_columns].copy()
+        display_df['Price_INR'] = display_df['Price_INR'].apply(lambda x: f"₹{x:,.0f}")
+        
+        st.dataframe(display_df, use_container_width=True)
+        
+        # Download button for brand data
+        csv = brand_df.to_csv(index=False)
+        st.download_button(
+            label=f"📥 Download {brand} Data as CSV",
+            data=csv,
+            file_name=f"{brand}_cars_data.csv",
+            mime="text/csv"
+        )
+    
+    # Visualizations for the brand
+    st.subheader(f"📈 {brand} Price Analysis")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Price distribution for the brand
+        fig1 = px.histogram(brand_df, x='Price_INR', 
+                           title=f"{brand} - Price Distribution",
+                           color_discrete_sequence=['#FF6B6B'])
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    with col2:
+        # Models price comparison
+        if len(brand_df['Model'].unique()) > 1:
+            model_prices = brand_df.groupby('Model')['Price_INR'].mean().sort_values(ascending=False)
+            fig2 = px.bar(x=model_prices.values, y=model_prices.index,
+                         orientation='h',
+                         title=f"{brand} - Models by Average Price",
+                         labels={'x': 'Price_INR', 'y': 'Model'},
+                         color_discrete_sequence=['#4ECDC4'])
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info(f"Only one model found for {brand}")
+    
+    # Year-wise analysis if available
+    if 'Year' in brand_df.columns:
+        st.subheader(f"📅 {brand} - Year-wise Analysis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            year_count = brand_df['Year'].value_counts().sort_index()
+            fig3 = px.line(x=year_count.index, y=year_count.values,
+                          title=f"{brand} - Cars by Manufacturing Year",
+                          labels={'x': 'Year', 'y': 'Number of Cars'})
+            st.plotly_chart(fig3, use_container_width=True)
+        
+        with col2:
+            year_prices = brand_df.groupby('Year')['Price_INR'].mean()
+            fig4 = px.line(x=year_prices.index, y=year_prices.values,
+                          title=f"{brand} - Average Price by Year",
+                          labels={'x': 'Year', 'y': 'Average Price_INR'})
+            st.plotly_chart(fig4, use_container_width=True)
+
+# ========================================
+# MODEL TRAINING FUNCTIONS
 # ========================================
 
 @st.cache_resource
@@ -168,7 +280,6 @@ def train_model(df):
         le = LabelEncoder()
         df_model[col] = le.fit_transform(df_model[col].astype(str))
         encoders[col] = le
-        st.info(f"✅ Encoded: {col} ({len(le.classes_)} categories)")
 
     # PREPARE FEATURES AND TARGET (Price_INR)
     X = df_model.drop(columns=['Price_INR'], errors='ignore')
@@ -229,17 +340,6 @@ def train_model(df):
     
     **Best Parameters:** {grid.best_params_}
     """)
-    
-    # Show feature importance
-    st.subheader("📊 Feature Importance for Price_INR Prediction")
-    fig = px.bar(
-        x=importances.values, 
-        y=importances.index,
-        orientation='h',
-        title="What affects Price_INR the most?",
-        labels={'x': 'Importance', 'y': 'Features'}
-    )
-    st.plotly_chart(fig, use_container_width=True)
     
     return {
         'model': best_model, 
@@ -312,13 +412,13 @@ def main():
     )
     
     st.title("🚗 Car Price Prediction System")
-    st.markdown("### **Price_INR Prediction - Aapke Data ke Hisaab Se**")
+    st.markdown("### **Price_INR Prediction - With Brand Data Display**")
     
     # Sidebar navigation
     with st.sidebar:
         st.image("https://img.icons8.com/fluency/48/car.png")
         st.title("Navigation")
-        page = st.radio("Go to", ["Data Overview", "Price Prediction", "EMI Calculator"])
+        page = st.radio("Go to", ["Data Overview", "Price Prediction", "Brand Analysis"])
         
         if st.button("🔄 Retrain Model"):
             for cache in [st.cache_data, st.cache_resource]:
@@ -338,22 +438,10 @@ def main():
             st.session_state.df_clean = df_clean
             
             # Show data preview
-            with st.expander("👀 Data Preview", expanded=True):
+            with st.expander("👀 Complete Data Preview", expanded=False):
                 st.dataframe(df_clean.head(10))
                 st.write(f"**Dataset Shape:** {df_clean.shape[0]} rows, {df_clean.shape[1]} columns")
                 
-                # Show basic stats
-                if 'Price_INR' in df_clean.columns:
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Avg Price_INR", f"₹{df_clean['Price_INR'].mean():,.0f}")
-                    with col2:
-                        st.metric("Min Price", f"₹{df_clean['Price_INR'].min():,.0f}")
-                    with col3:
-                        st.metric("Max Price", f"₹{df_clean['Price_INR'].max():,.0f}")
-                    with col4:
-                        st.metric("Total Cars", df_clean.shape[0])
-                        
         except Exception as e:
             st.error(f"❌ Error loading file: {e}")
             st.session_state.df_clean = pd.DataFrame()
@@ -391,6 +479,17 @@ def main():
         st.subheader("📊 Your Data Overview")
         
         if not df_clean.empty:
+            # Overall statistics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Cars", len(df_clean))
+            with col2:
+                st.metric("Avg Price_INR", f"₹{df_clean['Price_INR'].mean():,.0f}")
+            with col3:
+                st.metric("Brands", len(st.session_state.available_brands))
+            with col4:
+                st.metric("Price Range", f"₹{df_clean['Price_INR'].min():,.0f} - ₹{df_clean['Price_INR'].max():,.0f}")
+            
             # Price distribution
             st.subheader("💰 Price_INR Distribution")
             fig1 = px.histogram(df_clean, x='Price_INR', 
@@ -400,7 +499,7 @@ def main():
             
             # Brand analysis
             if 'Brand' in df_clean.columns:
-                st.subheader("🏷️ Brands in Your Data")
+                st.subheader("🏷️ Brands Overview")
                 
                 # Brand count
                 brand_count = df_clean['Brand'].value_counts().head(15)
@@ -409,23 +508,6 @@ def main():
                              title="Top 15 Brands by Count",
                              color_discrete_sequence=['#4ECDC4'])
                 st.plotly_chart(fig2, use_container_width=True)
-                
-                # Brand price analysis
-                brand_price = df_clean.groupby('Brand')['Price_INR'].mean().sort_values(ascending=False).head(15)
-                fig3 = px.bar(x=brand_price.values, y=brand_price.index,
-                             orientation='h',
-                             title="Top 15 Brands by Average Price_INR",
-                             color_discrete_sequence=['#FFE66D'])
-                st.plotly_chart(fig3, use_container_width=True)
-            
-            # Year analysis
-            if 'Year' in df_clean.columns:
-                st.subheader("📅 Car Years Analysis")
-                year_count = df_clean['Year'].value_counts().sort_index()
-                fig4 = px.line(x=year_count.index, y=year_count.values,
-                              title="Cars by Manufacturing Year",
-                              labels={'x': 'Year', 'y': 'Number of Cars'})
-                st.plotly_chart(fig4, use_container_width=True)
         
         else:
             st.info("📊 Upload a CSV file to see data insights")
@@ -523,6 +605,10 @@ def main():
             else:
                 city = st.selectbox("City", ["Delhi", "Mumbai", "Bangalore", "Chennai", "Pune"])
         
+        # SHOW BRAND DATA WHEN BRAND IS SELECTED
+        if brand:
+            show_brand_data(brand)
+        
         # Prediction button
         if st.button("🎯 Predict Price_INR", type="primary", use_container_width=True):
             with st.spinner("🔍 Predicting Price_INR..."):
@@ -568,30 +654,12 @@ def main():
                 with col3:
                     st.metric("Maximum Expected", f"₹{max_price:,.0f}")
                 
-                # Visual gauge
-                st.subheader("📊 Price Range Analysis")
+                # Compare with actual brand data
+                if brand in st.session_state.brand_data:
+                    brand_avg = st.session_state.brand_data[brand]['Price_INR'].mean()
+                    st.info(f"📊 Compared to {brand}'s average in your data: ₹{brand_avg:,.0f}")
                 
-                fig = go.Figure(go.Indicator(
-                    mode = "gauge+number+delta",
-                    value = final_price,
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "Predicted Price_INR"},
-                    delta = {'reference': min_price, 'position': "bottom"},
-                    gauge = {
-                        'axis': {'range': [min_price * 0.8, max_price * 1.2]},
-                        'bar': {'color': "darkblue"},
-                        'steps': [
-                            {'range': [min_price * 0.8, min_price], 'color': "lightgray"},
-                            {'range': [min_price, final_price], 'color': "gray"},
-                            {'range': [final_price, max_price], 'color': "lightblue"}],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': final_price}}
-                ))
-                
-                fig.update_layout(height=300)
-                st.plotly_chart(fig, use_container_width=True)
+                st.balloons()
                 
                 # Save to prediction history
                 prediction_record = {
@@ -605,46 +673,18 @@ def main():
                 }
                 
                 st.session_state.predictions.append(prediction_record)
-                
-                st.balloons()
     
-    elif page == "EMI Calculator":
-        st.subheader("🧮 EMI Calculator")
+    elif page == "Brand Analysis":
+        st.subheader("🏷️ Brand-wise Analysis")
         
-        # Simple EMI calculator
-        st.info("💡 Calculate your car loan EMI based on predicted price")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            price = st.number_input("Car Price (₹)", 100000, 50000000, 1000000, 50000)
-            down = st.slider("Down Payment (%)", 0, 50, 20)
-            rate = st.slider("Interest Rate (%)", 5.0, 15.0, 9.5, 0.1)
-            tenure = st.slider("Loan Tenure (years)", 1, 7, 5)
-        
-        # EMI calculation
-        loan = price * (1 - down/100)
-        r = rate / (12 * 100)
-        months = tenure * 12
-        emi = loan * r * ((1 + r)**months) / (((1 + r)**months) - 1) if loan > 0 else 0
-        total = emi * months
-        interest = total - loan
-        
-        with col2:
-            st.metric("Loan Amount", f"₹{loan:,.0f}")
-            st.metric("Monthly EMI", f"₹{emi:,.0f}")
-            st.metric("Total Interest", f"₹{interest:,.0f}")
-            st.metric("Total Payment", f"₹{total:,.0f}")
+        if not df_clean.empty and st.session_state.available_brands:
+            selected_brand = st.selectbox("Select Brand for Detailed Analysis", 
+                                         st.session_state.available_brands)
             
-            # Pie chart
-            fig = go.Figure(data=[go.Pie(
-                labels=['Principal', 'Interest'], 
-                values=[loan, interest],
-                hole=0.4, 
-                marker_colors=['#4ECDC4', '#FF6B6B']
-            )])
-            fig.update_layout(title="EMI Breakdown")
-            st.plotly_chart(fig, use_container_width=True)
+            if selected_brand:
+                show_brand_data(selected_brand)
+        else:
+            st.info("📊 Upload a CSV file to see brand analysis")
     
     # Prediction History
     st.markdown("---")
