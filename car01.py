@@ -139,110 +139,118 @@ CAR_DATABASE = {
         'power_hp': [123, 170, 96, 96, 96],
         'seats': [5, 7, 5, 5, 5]
     },
+    # LUXURY CAR BRANDS - ADDED
     'BMW': {
-        'models': ['3 Series', '5 Series', '7 Series', 'X1', 'X3', 'X5', 'X7', 'Z4', 'i4', 'iX'],
-        'car_types': ['Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'Convertible', 'Sedan', 'SUV'],
-        'engine_cc': [1998, 1998, 2998, 1499, 1998, 2998, 2998, 1998, 0, 0],
-        'power_hp': [255, 248, 335, 140, 248, 335, 400, 197, 340, 523],
-        'seats': [5, 5, 5, 5, 5, 5, 7, 2, 5, 5]
+        'models': ['3 Series', '5 Series', '7 Series', 'X1', 'X3', 'X5', 'X7', 'Z4', 'i4', 'iX', 'M3', 'M5', 'X3 M', 'X5 M', '8 Series'],
+        'car_types': ['Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'Convertible', 'Sedan', 'SUV', 'Sedan', 'Sedan', 'SUV', 'SUV', 'Coupe'],
+        'engine_cc': [1998, 1998, 2998, 1499, 1998, 2998, 2998, 1998, 0, 0, 2993, 4395, 2993, 4395, 2998],
+        'power_hp': [255, 248, 335, 140, 248, 335, 400, 197, 340, 523, 473, 600, 473, 600, 335],
+        'seats': [5, 5, 5, 5, 5, 5, 7, 2, 5, 5, 5, 5, 5, 5, 4]
     },
     'Mercedes-Benz': {
-        'models': ['A-Class', 'C-Class', 'E-Class', 'S-Class', 'GLA', 'GLC', 'GLE', 'GLS', 'EQB', 'EQS'],
-        'car_types': ['Sedan', 'Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'Sedan'],
-        'engine_cc': [1332, 1497, 1991, 2999, 1332, 1991, 1991, 2999, 0, 0],
-        'power_hp': [163, 204, 258, 435, 163, 258, 362, 483, 228, 329],
-        'seats': [5, 5, 5, 5, 5, 5, 5, 7, 7, 5]
+        'models': ['A-Class', 'C-Class', 'E-Class', 'S-Class', 'GLA', 'GLC', 'GLE', 'GLS', 'EQB', 'EQS', 'AMG GT', 'Maybach S-Class', 'G-Class', 'CLS', 'SL'],
+        'car_types': ['Sedan', 'Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'Sedan', 'Coupe', 'Sedan', 'SUV', 'Coupe', 'Convertible'],
+        'engine_cc': [1332, 1497, 1991, 2999, 1332, 1991, 1991, 2999, 0, 0, 3982, 5980, 2925, 1991, 1991],
+        'power_hp': [163, 204, 258, 435, 163, 258, 362, 483, 228, 329, 523, 621, 416, 258, 258],
+        'seats': [5, 5, 5, 5, 5, 5, 5, 7, 7, 5, 4, 4, 5, 5, 2]
     },
     'Audi': {
-        'models': ['A3', 'A4', 'A6', 'A8', 'Q3', 'Q5', 'Q7', 'Q8', 'e-tron', 'RS5'],
-        'car_types': ['Sedan', 'Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'Coupe'],
-        'engine_cc': [1395, 1984, 1984, 2995, 1395, 1984, 2995, 2995, 0, 2894],
-        'power_hp': [150, 190, 245, 340, 150, 245, 340, 340, 355, 450],
-        'seats': [5, 5, 5, 5, 5, 5, 7, 5, 5, 4]
+        'models': ['A3', 'A4', 'A6', 'A8', 'Q3', 'Q5', 'Q7', 'Q8', 'e-tron', 'RS5', 'R8', 'TT', 'RS7', 'Q8 Sportback', 'A5'],
+        'car_types': ['Sedan', 'Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'Coupe', 'Sports', 'Coupe', 'Sedan', 'SUV', 'Coupe'],
+        'engine_cc': [1395, 1984, 1984, 2995, 1395, 1984, 2995, 2995, 0, 2894, 5204, 1984, 3993, 2995, 1984],
+        'power_hp': [150, 190, 245, 340, 150, 245, 340, 340, 355, 450, 602, 228, 600, 340, 190],
+        'seats': [5, 5, 5, 5, 5, 5, 7, 5, 5, 4, 2, 4, 5, 5, 5]
     },
     'Lexus': {
-        'models': ['ES', 'LS', 'NX', 'RX', 'UX', 'LC'],
-        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'Coupe'],
-        'engine_cc': [2487, 3445, 2487, 3456, 1987, 4969],
-        'power_hp': [215, 422, 194, 295, 169, 471],
-        'seats': [5, 5, 5, 5, 5, 4]
+        'models': ['ES', 'LS', 'NX', 'RX', 'UX', 'LC', 'LX', 'RC', 'GX', 'IS'],
+        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'Coupe', 'SUV', 'Coupe', 'SUV', 'Sedan'],
+        'engine_cc': [2487, 3445, 2487, 3456, 1987, 4969, 3445, 3456, 3956, 1998],
+        'power_hp': [215, 422, 194, 295, 169, 471, 409, 311, 301, 241],
+        'seats': [5, 5, 5, 5, 5, 4, 8, 4, 7, 5]
     },
     'Jaguar': {
-        'models': ['XE', 'XF', 'XJ', 'F-PACE', 'E-PACE', 'I-PACE'],
-        'car_types': ['Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV'],
-        'engine_cc': [1997, 1997, 2993, 1997, 1997, 0],
-        'power_hp': [247, 247, 335, 247, 247, 400],
-        'seats': [5, 5, 5, 5, 5, 5]
+        'models': ['XE', 'XF', 'XJ', 'F-PACE', 'E-PACE', 'I-PACE', 'F-TYPE', 'XK', 'S-Type'],
+        'car_types': ['Sedan', 'Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'Convertible', 'Coupe', 'Sedan'],
+        'engine_cc': [1997, 1997, 2993, 1997, 1997, 0, 5000, 5000, 2967],
+        'power_hp': [247, 247, 335, 247, 247, 400, 575, 385, 235],
+        'seats': [5, 5, 5, 5, 5, 5, 2, 4, 5]
     },
     'Land Rover': {
-        'models': ['Range Rover', 'Range Rover Sport', 'Range Rover Velar', 'Range Rover Evoque', 'Discovery', 'Defender'],
-        'car_types': ['SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV'],
-        'engine_cc': [2996, 2996, 1997, 1997, 2996, 2996],
-        'power_hp': [355, 355, 247, 247, 355, 400],
-        'seats': [5, 5, 5, 5, 7, 5]
+        'models': ['Range Rover', 'Range Rover Sport', 'Range Rover Velar', 'Range Rover Evoque', 'Discovery', 'Defender', 'Discovery Sport'],
+        'car_types': ['SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV', 'SUV'],
+        'engine_cc': [2996, 2996, 1997, 1997, 2996, 2996, 1997],
+        'power_hp': [355, 355, 247, 247, 355, 400, 247],
+        'seats': [5, 5, 5, 5, 7, 5, 7]
     },
     'Porsche': {
-        'models': ['911', 'Panamera', 'Cayenne', 'Macan', 'Taycan'],
-        'car_types': ['Coupe', 'Sedan', 'SUV', 'SUV', 'Sedan'],
-        'engine_cc': [2981, 2894, 2995, 1984, 0],
-        'power_hp': [385, 330, 340, 265, 402],
-        'seats': [4, 5, 5, 5, 4]
+        'models': ['911', 'Panamera', 'Cayenne', 'Macan', 'Taycan', 'Boxster', 'Cayman', '718', '918 Spyder'],
+        'car_types': ['Coupe', 'Sedan', 'SUV', 'SUV', 'Sedan', 'Convertible', 'Coupe', 'Coupe', 'Sports'],
+        'engine_cc': [2981, 2894, 2995, 1984, 0, 2497, 2497, 1988, 4593],
+        'power_hp': [385, 330, 340, 265, 402, 300, 300, 300, 887],
+        'seats': [4, 5, 5, 5, 4, 2, 2, 2, 2]
     },
     'Volvo': {
-        'models': ['S60', 'S90', 'XC40', 'XC60', 'XC90', 'C40'],
-        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV'],
-        'engine_cc': [1969, 1969, 1969, 1969, 1969, 0],
-        'power_hp': [250, 250, 197, 250, 300, 231],
-        'seats': [5, 5, 5, 5, 7, 5]
+        'models': ['S60', 'S90', 'XC40', 'XC60', 'XC90', 'C40', 'V90', 'V60', 'XC90 Recharge'],
+        'car_types': ['Sedan', 'Sedan', 'SUV', 'SUV', 'SUV', 'SUV', 'Estate', 'Estate', 'SUV'],
+        'engine_cc': [1969, 1969, 1969, 1969, 1969, 0, 1969, 1969, 1969],
+        'power_hp': [250, 250, 197, 250, 300, 231, 250, 250, 400],
+        'seats': [5, 5, 5, 5, 7, 5, 5, 5, 7]
     },
-    'Jeep': {
-        'models': ['Compass', 'Wrangler', 'Grand Cherokee', 'Meridian'],
-        'car_types': ['SUV', 'SUV', 'SUV', 'SUV'],
-        'engine_cc': [1956, 1995, 2998, 1956],
-        'power_hp': [173, 268, 360, 173],
-        'seats': [5, 4, 5, 7]
+    'Maserati': {
+        'models': ['Ghibli', 'Quattroporte', 'Levante', 'GranTurismo', 'MC20', 'GranCabrio'],
+        'car_types': ['Sedan', 'Sedan', 'SUV', 'Coupe', 'Sports', 'Convertible'],
+        'engine_cc': [2979, 2979, 2979, 4691, 2992, 4691],
+        'power_hp': [350, 424, 424, 454, 621, 454],
+        'seats': [5, 5, 5, 4, 2, 4]
     },
-    'Citroen': {
-        'models': ['C3', 'C5 Aircross', 'eC3'],
-        'car_types': ['Hatchback', 'SUV', 'Hatchback'],
-        'engine_cc': [1199, 1499, 0],
-        'power_hp': [82, 130, 57],
-        'seats': [5, 5, 5]
+    'Bentley': {
+        'models': ['Continental GT', 'Flying Spur', 'Bentayga', 'Mulsanne', 'Azure', 'Brooklands'],
+        'car_types': ['Coupe', 'Sedan', 'SUV', 'Sedan', 'Convertible', 'Coupe'],
+        'engine_cc': [3993, 3993, 3993, 6750, 6750, 6750],
+        'power_hp': [542, 542, 542, 505, 457, 530],
+        'seats': [4, 5, 5, 5, 4, 4]
     },
-    'Mitsubishi': {
-        'models': ['Outlander', 'Pajero Sport', 'Eclipse Cross'],
-        'car_types': ['SUV', 'SUV', 'SUV'],
-        'engine_cc': [2360, 2442, 1469],
-        'power_hp': [166, 178, 163],
-        'seats': [7, 7, 5]
+    'Rolls-Royce': {
+        'models': ['Ghost', 'Phantom', 'Cullinan', 'Wraith', 'Dawn', 'Spectre'],
+        'car_types': ['Sedan', 'Sedan', 'SUV', 'Coupe', 'Convertible', 'Coupe'],
+        'engine_cc': [6749, 6749, 6749, 6592, 6592, 0],
+        'power_hp': [563, 563, 563, 624, 563, 577],
+        'seats': [5, 5, 5, 4, 4, 4]
     },
-    'Force': {
-        'models': ['Gurkha', 'Motors', 'Traveller'],
-        'car_types': ['SUV', 'SUV', 'Van'],
-        'engine_cc': [2596, 2596, 2596],
-        'power_hp': [80, 80, 80],
-        'seats': [5, 5, 13]
+    'Lamborghini': {
+        'models': ['Huracan', 'Aventador', 'Urus', 'Gallardo', 'Murcielago', 'Revuelto'],
+        'car_types': ['Sports', 'Sports', 'SUV', 'Sports', 'Sports', 'Sports'],
+        'engine_cc': [5204, 6498, 3996, 5204, 6498, 6498],
+        'power_hp': [631, 740, 641, 562, 661, 1015],
+        'seats': [2, 2, 5, 2, 2, 2]
     },
-    'Isuzu': {
-        'models': ['D-Max', 'MU-X', 'V-Cross'],
-        'car_types': ['Pickup', 'SUV', 'Pickup'],
-        'engine_cc': [1898, 1898, 1898],
-        'power_hp': [164, 164, 164],
-        'seats': [5, 7, 5]
+    'Ferrari': {
+        'models': ['Portofino', 'Roma', 'F8 Tributo', 'SF90 Stradale', '812 Superfast', '296 GTB', 'Purosangue'],
+        'car_types': ['Convertible', 'Coupe', 'Coupe', 'Sports', 'Coupe', 'Sports', 'SUV'],
+        'engine_cc': [3855, 3855, 3902, 3990, 6496, 2992, 6496],
+        'power_hp': [612, 612, 710, 986, 789, 654, 715],
+        'seats': [2, 4, 2, 2, 2, 2, 4]
     },
-    'Mini': {
-        'models': ['Cooper', 'Countryman', 'Clubman'],
-        'car_types': ['Hatchback', 'SUV', 'Hatchback'],
-        'engine_cc': [1499, 1499, 1499],
-        'power_hp': [136, 136, 136],
-        'seats': [4, 5, 4]
+    'Aston Martin': {
+        'models': ['DB11', 'Vantage', 'DBS Superleggera', 'DBX', 'Rapide', 'Valhalla', 'Valkyrie'],
+        'car_types': ['Coupe', 'Sports', 'Coupe', 'SUV', 'Sedan', 'Sports', 'Hypercar'],
+        'engine_cc': [3996, 3996, 5204, 3982, 5935, 3996, 6500],
+        'power_hp': [503, 503, 715, 542, 552, 937, 1160],
+        'seats': [4, 2, 2, 5, 4, 2, 2]
     },
-    'BYD': {
-        'models': ['Atto 3', 'E6', 'Han'],
-        'car_types': ['SUV', 'MPV', 'Sedan'],
-        'engine_cc': [0, 0, 0],
-        'power_hp': [201, 95, 215],
-        'seats': [5, 5, 5]
+    'McLaren': {
+        'models': ['720S', '570S', 'GT', 'Artura', 'P1', 'Senna', 'Elva'],
+        'car_types': ['Sports', 'Sports', 'Sports', 'Sports', 'Hypercar', 'Sports', 'Roadster'],
+        'engine_cc': [3994, 3799, 3994, 2993, 3799, 3994, 3994],
+        'power_hp': [710, 562, 612, 671, 903, 789, 804],
+        'seats': [2, 2, 2, 2, 2, 2, 2]
+    },
+    'Bugatti': {
+        'models': ['Chiron', 'Veyron', 'Divo', 'Centodieci', 'Bolide'],
+        'car_types': ['Hypercar', 'Hypercar', 'Hypercar', 'Hypercar', 'Track Car'],
+        'engine_cc': [7993, 7993, 7993, 7993, 7993],
+        'power_hp': [1500, 1001, 1500, 1600, 1600],
+        'seats': [2, 2, 2, 2, 2]
     }
 }
 
@@ -534,6 +542,111 @@ def get_enhanced_live_prices(brand, model):
         }
     }
     
+    # Luxury car price database - ADDED
+    luxury_price_database = {
+        'BMW': {
+            '3 Series': [1800000, 2500000, 3500000],
+            '5 Series': [3000000, 4000000, 5500000],
+            '7 Series': [6000000, 8500000, 12000000],
+            'X1': [2500000, 3500000, 4500000],
+            'X3': [3500000, 5000000, 6500000],
+            'X5': [5500000, 7500000, 9500000],
+            'X7': [8000000, 11000000, 14000000],
+            'M3': [6500000, 8500000, 11000000],
+            'M5': [9500000, 12000000, 15000000]
+        },
+        'Mercedes-Benz': {
+            'A-Class': [2200000, 3000000, 4000000],
+            'C-Class': [2800000, 4000000, 5500000],
+            'E-Class': [4500000, 6000000, 8000000],
+            'S-Class': [8000000, 12000000, 16000000],
+            'GLA': [2500000, 3500000, 4800000],
+            'GLC': [4000000, 5500000, 7500000],
+            'GLE': [5500000, 7500000, 10000000],
+            'GLS': [7500000, 10000000, 13000000],
+            'Maybach S-Class': [15000000, 20000000, 25000000]
+        },
+        'Audi': {
+            'A3': [2000000, 2800000, 3800000],
+            'A4': [3000000, 4200000, 5500000],
+            'A6': [4500000, 6000000, 8000000],
+            'A8': [7500000, 10000000, 13000000],
+            'Q3': [2800000, 3800000, 5000000],
+            'Q5': [4000000, 5500000, 7000000],
+            'Q7': [6000000, 8000000, 11000000],
+            'Q8': [7000000, 9500000, 12000000],
+            'R8': [15000000, 20000000, 25000000]
+        },
+        'Lexus': {
+            'ES': [3500000, 5000000, 6500000],
+            'LS': [8000000, 11000000, 14000000],
+            'NX': [4000000, 5500000, 7000000],
+            'RX': [5500000, 7500000, 9500000],
+            'LX': [9000000, 12000000, 15000000]
+        },
+        'Porsche': {
+            '911': [12000000, 16000000, 20000000],
+            'Panamera': [9000000, 13000000, 17000000],
+            'Cayenne': [8000000, 11000000, 14000000],
+            'Macan': [5500000, 7500000, 9500000],
+            'Taycan': [8500000, 12000000, 15000000]
+        },
+        'Jaguar': {
+            'XE': [2500000, 3500000, 4500000],
+            'XF': [3500000, 5000000, 6500000],
+            'F-PACE': [4500000, 6000000, 8000000],
+            'I-PACE': [6500000, 8500000, 11000000]
+        },
+        'Land Rover': {
+            'Range Rover': [10000000, 14000000, 18000000],
+            'Range Rover Sport': [8000000, 11000000, 14000000],
+            'Defender': [5500000, 7500000, 9500000],
+            'Discovery': [4500000, 6000000, 8000000]
+        },
+        'Volvo': {
+            'XC40': [2800000, 3800000, 5000000],
+            'XC60': [4000000, 5500000, 7000000],
+            'XC90': [5000000, 7000000, 9000000],
+            'S90': [3500000, 5000000, 6500000]
+        },
+        'Ferrari': {
+            'Portofino': [25000000, 35000000, 45000000],
+            'F8 Tributo': [35000000, 50000000, 65000000],
+            'SF90 Stradale': [60000000, 80000000, 100000000],
+            'Roma': [20000000, 28000000, 36000000]
+        },
+        'Lamborghini': {
+            'Huracan': [22000000, 30000000, 38000000],
+            'Aventador': [35000000, 50000000, 65000000],
+            'Urus': [25000000, 35000000, 45000000]
+        },
+        'Rolls-Royce': {
+            'Ghost': [35000000, 50000000, 65000000],
+            'Phantom': [60000000, 85000000, 110000000],
+            'Cullinan': [45000000, 65000000, 85000000]
+        },
+        'Bentley': {
+            'Continental GT': [25000000, 35000000, 45000000],
+            'Flying Spur': [28000000, 40000000, 52000000],
+            'Bentayga': [22000000, 32000000, 42000000]
+        },
+        'Maserati': {
+            'Ghibli': [8000000, 11000000, 14000000],
+            'Quattroporte': [12000000, 16000000, 20000000],
+            'Levante': [9000000, 13000000, 17000000]
+        },
+        'Aston Martin': {
+            'DB11': [22000000, 30000000, 38000000],
+            'Vantage': [18000000, 25000000, 32000000],
+            'DBS Superleggera': [35000000, 48000000, 60000000]
+        },
+        'McLaren': {
+            '720S': [28000000, 40000000, 52000000],
+            '570S': [20000000, 28000000, 36000000],
+            'Artura': [25000000, 35000000, 45000000]
+        }
+    }
+    
     # Default price ranges for brands not in database
     brand_defaults = {
         'BMW': [1500000, 2500000, 4000000],
@@ -552,6 +665,9 @@ def get_enhanced_live_prices(brand, model):
         if brand in car_price_database and model in car_price_database[brand]:
             prices = car_price_database[brand][model]
             sources = ["Used Car Market Database"]
+        elif brand in luxury_price_database and model in luxury_price_database[brand]:
+            prices = luxury_price_database[brand][model]
+            sources = ["Luxury Car Market Database"]
         elif brand in brand_defaults:
             prices = brand_defaults[brand]
             sources = ["Luxury Car Market Average"]
